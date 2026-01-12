@@ -1,0 +1,21 @@
+vcpkg_from_github(
+    OUT_SOURCE_PATH SOURCE_PATH
+    REPO cleishm/thermo-cpp
+    REF "v${VERSION}"
+    SHA512 0  # Update with actual SHA512 after tagging release
+    HEAD_REF main
+)
+
+vcpkg_cmake_configure(
+    SOURCE_PATH "${SOURCE_PATH}"
+    OPTIONS
+        -DTHERMO_BUILD_TESTS=OFF
+)
+
+vcpkg_cmake_install()
+vcpkg_cmake_config_fixup(PACKAGE_NAME thermo CONFIG_PATH lib/cmake/thermo)
+
+file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug")
+file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/lib")
+
+vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/LICENSE")
