@@ -406,6 +406,7 @@ inline std::string to_string(delta_millifahrenheit d) {
 // Temperature Scales and Absolute Temperatures
 // ============================================================================
 
+/** @cond INTERNAL */
 /**
  * @brief Celsius temperature scale.
  *
@@ -435,6 +436,7 @@ struct fahrenheit_scale {
     using offset = std::ratio<45967, 180>;
     static constexpr const char* suffix = "°F";
 };
+/** @endcond */
 
 template<typename Scale, typename Delta = delta<int64_t>>
 class temperature;
@@ -453,7 +455,6 @@ concept _lossless_temperature_conversion = [] {
 
     return prec_ratio::den == 1 && offset_in_target_units::den == 1;
 }();
-/** @endcond */
 
 /**
  * @brief Trait to detect temperature specializations.
@@ -467,6 +468,7 @@ struct is_temperature<temperature<Scale, Delta>> : std::true_type {};
 
 template<typename T>
 inline constexpr bool is_temperature_v = is_temperature<T>::value;
+/** @endcond */
 
 /**
  * @brief Converts a temperature to a different scale or precision.
