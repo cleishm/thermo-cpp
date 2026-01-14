@@ -2,7 +2,7 @@ vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO cleishm/thermo-cpp
     REF "v${VERSION}"
-    SHA512 0  # Update with actual SHA512 after tagging release
+    SHA512 95d3618a5ddc5a0f0c842a331727eba90899d88a360615808f3597978fde57803385d430cce0c672c48607642b3ed8b00e09d6d9b8102825a6e1556b2d0029c8
     HEAD_REF main
 )
 
