@@ -1,5 +1,5 @@
 {
-  "name": "thermo",
+  "name": "cleishm-thermo-cpp",
   "version": "1.0.0",
   "description": "Type-safe temperature handling library modeled after std::chrono",
   "homepage": "https://github.com/cleishm/thermo-cpp",
