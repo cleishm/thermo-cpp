@@ -3,6 +3,10 @@ build/
 cmake-build-*/
 out/
 
+# Documentation
+docs/html/
+docs/xml/
+
 # IDE
 .idea/
 .vscode/

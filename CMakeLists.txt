@@ -26,6 +26,26 @@ if(THERMO_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
+# Documentation
+option(THERMO_BUILD_DOCS "Build documentation" OFF)
+
+if(THERMO_BUILD_DOCS)
+    find_package(Doxygen)
+    if(DOXYGEN_FOUND)
+        set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/docs)
+        add_custom_target(docs
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${DOXYGEN_OUTPUT_DIRECTORY}
+            COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/docs/Doxyfile
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/docs
+            COMMENT "Generating API documentation with Doxygen"
+            VERBATIM
+        )
+        message(STATUS "Doxygen found: documentation can be built with 'make docs'")
+    else()
+        message(WARNING "Doxygen not found: documentation cannot be built")
+    endif()
+endif()
+
 # Installation
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
