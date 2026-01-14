@@ -41,6 +41,7 @@ struct is_delta : std::false_type {};
 template<typename Rep, typename Precision>
 struct is_delta<delta<Rep, Precision>> : std::true_type {};
 
+/** @cond INTERNAL */
 template<typename T, template<typename...> class Template>
 struct _is_specialization_of : std::false_type {};
 
@@ -53,10 +54,6 @@ inline constexpr bool _is_specialization_of_v = _is_specialization_of<T, Templat
 template<typename Rep>
 concept not_delta = !_is_specialization_of_v<Rep, delta>;
 
-/**
- * @brief Provides special values for delta representations.
- * @tparam Rep The representation type.
- */
 template<typename Rep>
 struct delta_values
 {
@@ -82,14 +79,6 @@ struct _is_ratio : std::false_type {};
 template<std::intmax_t Num, std::intmax_t Denom>
 struct _is_ratio<std::ratio<Num, Denom>> : std::true_type {};
 
-/**
- * @brief Trait to indicate floating-point-like behavior.
- *
- * Specializations for floating-point types return true. User-defined types
- * may specialize this to enable implicit lossy conversions.
- *
- * @tparam T The type to check.
- */
 template<typename T>
 struct treat_as_inexact : std::bool_constant<std::floating_point<T>> {};
 
@@ -114,6 +103,7 @@ inline constexpr intmax_t _safe_ratio_divide_den = [] {
 
 template<typename From, typename To>
 concept _harmonic_precision = _safe_ratio_divide_den<From, To> == 1;
+/** @endcond */
 
 /**
  * @brief A temperature difference with a representation and precision.
@@ -449,6 +439,7 @@ struct fahrenheit_scale {
 template<typename Scale, typename Delta = delta<int64_t>>
 class temperature;
 
+/** @cond INTERNAL */
 template<typename Scale1, typename Delta1, typename Scale2, typename Delta2>
 concept _lossless_temperature_conversion = [] {
     using from_prec = typename Delta1::precision;
@@ -462,6 +453,7 @@ concept _lossless_temperature_conversion = [] {
 
     return prec_ratio::den == 1 && offset_in_target_units::den == 1;
 }();
+/** @endcond */
 
 /**
  * @brief Trait to detect temperature specializations.
@@ -909,6 +901,7 @@ struct formatter<thermo::millifahrenheit> {
  * @brief User-defined literals for temperature types.
  */
 namespace thermo_literals {
+/** @cond INTERNAL */
 namespace detail {
 
 template<unsigned long long Value, unsigned long long Power>
@@ -947,6 +940,7 @@ constexpr Delta check_overflow() {
 }
 
 } // namespace detail
+/** @endcond */
 
 /** @brief Literal for celsius (e.g., 25_c). */
 template<char... Digits>
