@@ -2,6 +2,8 @@
 
 A type-safe, header-only C++23 library for temperature handling, modeled after `std::chrono`.
 
+📚 **[Full API Documentation](https://cleishm.github.io/thermo-cpp/)**
+
 ## Features
 
 - **Type-safe temperatures** with distinct types for Celsius, Kelvin, and Fahrenheit
