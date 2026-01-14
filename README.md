@@ -40,7 +40,7 @@ target_link_libraries(your_target PRIVATE thermo::thermo)
 ### vcpkg
 
 ```bash
-vcpkg install thermo
+vcpkg install cleishm-thermo-cpp
 ```
 
 ```cmake
