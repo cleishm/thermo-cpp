@@ -8,97 +8,17 @@ using namespace thermo;
 using namespace thermo_literals;
 
 // =============================================================================
-// Compile-time tests (static_assert)
-// These verify correctness at compile time - if this file compiles, they pass.
+// Delta construction and arithmetic
 // =============================================================================
 
-// Delta construction and arithmetic
+// Compile-time tests
 static_assert(delta_celsius(10).count() == 10);
 static_assert(delta_celsius(5) + delta_celsius(3) == delta_celsius(8));
 static_assert(delta_celsius(5) - delta_celsius(3) == delta_celsius(2));
 static_assert(delta_celsius(5) * 2 == delta_celsius(10));
 static_assert(delta_celsius(10) / 2 == delta_celsius(5));
 
-// Delta precision conversions
-static_assert(delta_celsius(1) == delta_millicelsius(1000));
-static_assert(delta_fahrenheit(9) == delta_celsius(5));
-
-// Temperature construction
-static_assert(celsius(0).count() == 0);
-static_assert(celsius(100).count() == 100);
-static_assert(kelvin(273).count() == 273);
-static_assert(millicelsius(1000).count() == 1000);
-static_assert(millikelvin(273150).count() == 273150);
-
-// Same-scale precision conversions
-constexpr millicelsius mc_from_c = celsius(1);
-static_assert(mc_from_c.count() == 1000);
-constexpr millikelvin mk_from_k = kelvin(273);
-static_assert(mk_from_k.count() == 273000);
-static_assert(celsius(millicelsius(1500)).count() == 1);
-
-// Cross-scale conversions
-static_assert(kelvin(celsius(0)).count() == 273);
-static_assert(kelvin(celsius(100)).count() == 373);
-static_assert(celsius(kelvin(273)).count() == 0);
-
-// Millikelvin precision (lossless)
-constexpr millikelvin mk_from_0c = temperature_cast<millikelvin>(celsius(0));
-static_assert(mk_from_0c.count() == 273150);
-constexpr millikelvin mk_from_mc = millicelsius(0);
-static_assert(mk_from_mc.count() == 273150);
-
-// Fahrenheit conversions
-static_assert(fahrenheit(32).count() == 32);
-static_assert(celsius(fahrenheit(32)).count() == 0);
-static_assert(celsius(fahrenheit(212)).count() == 100);
-static_assert(celsius(fahrenheit(0)).count() == -17);
-
-// Temperature arithmetic
-static_assert((celsius(20) + delta_celsius(5)).count() == 25);
-static_assert((celsius(20) - delta_celsius(5)).count() == 15);
-static_assert((delta_celsius(5) + celsius(20)).count() == 25);
-static_assert((celsius(20) + celsius(10)).count() == 30);
-static_assert((celsius(20) - celsius(10)).count() == 10);
-static_assert(difference(celsius(25), celsius(20)).count() == 5);
-
-// Comparison operators
-static_assert(celsius(20) == celsius(20));
-static_assert(celsius(20) != celsius(21));
-static_assert(celsius(20) < celsius(21));
-static_assert(celsius(21) > celsius(20));
-static_assert(celsius(20) <= celsius(21));
-static_assert(celsius(21) >= celsius(20));
-static_assert(millicelsius(celsius(1)) == millicelsius(1000));
-
-// Literals
-static_assert((20_c).count() == 20);
-static_assert((1000_mc).count() == 1000);
-static_assert((273_k).count() == 273);
-static_assert((273000_mk).count() == 273000);
-static_assert((32_f).count() == 32);
-static_assert((5_Δc).count() == 5);
-static_assert((1000_Δmc).count() == 1000);
-static_assert((5_Δk).count() == 5);
-static_assert((1000_Δmk).count() == 1000);
-static_assert((9_Δf).count() == 9);
-static_assert((9000_Δmf).count() == 9000);
-
-// Lossless conversion concept
-static_assert(_lossless_temperature_conversion<celsius_scale, delta_celsius, celsius_scale, delta_millicelsius>);
-static_assert(!_lossless_temperature_conversion<celsius_scale, delta_millicelsius, celsius_scale, delta_celsius>);
-static_assert(_lossless_temperature_conversion<kelvin_scale, delta_kelvin, kelvin_scale, delta_millikelvin>);
-static_assert(_lossless_temperature_conversion<celsius_scale, delta_celsius, kelvin_scale, delta_millikelvin>);
-static_assert(!_lossless_temperature_conversion<kelvin_scale, delta_kelvin, celsius_scale, delta_celsius>);
-
-// min/max
-static_assert(celsius::min().count() < 0);
-static_assert(celsius::max().count() > 0);
-
-// =============================================================================
-// Runtime tests (Catch2 TEST_CASE)
-// =============================================================================
-
+// Runtime tests
 TEST_CASE("delta construction", "[thermo][delta]") {
     REQUIRE(delta_celsius(10).count() == 10);
     REQUIRE(delta_celsius::zero().count() == 0);
@@ -111,6 +31,15 @@ TEST_CASE("delta arithmetic", "[thermo][delta]") {
     REQUIRE((delta_celsius(10) / 2).count() == 5);
 }
 
+// =============================================================================
+// Delta precision conversions
+// =============================================================================
+
+// Compile-time tests
+static_assert(delta_celsius(1) == delta_millicelsius(1000));
+static_assert(delta_fahrenheit(9) == delta_celsius(5));
+
+// Runtime tests
 TEST_CASE("delta precision conversion", "[thermo][delta]") {
     // milli to base (explicit, lossy - divides by 1000)
     delta_celsius dc = delta_cast<delta_celsius>(delta_millicelsius(1000));
@@ -124,6 +53,18 @@ TEST_CASE("delta precision conversion", "[thermo][delta]") {
     REQUIRE(delta_fahrenheit(9) == delta_celsius(5));
 }
 
+// =============================================================================
+// Temperature construction
+// =============================================================================
+
+// Compile-time tests
+static_assert(celsius(0).count() == 0);
+static_assert(celsius(100).count() == 100);
+static_assert(kelvin(273).count() == 273);
+static_assert(millicelsius(1000).count() == 1000);
+static_assert(millikelvin(273150).count() == 273150);
+
+// Runtime tests
 TEST_CASE("temperature construction", "[thermo][temperature]") {
     REQUIRE(celsius(0).count() == 0);
     REQUIRE(celsius(100).count() == 100);
@@ -131,6 +72,18 @@ TEST_CASE("temperature construction", "[thermo][temperature]") {
     REQUIRE(fahrenheit(32).count() == 32);
 }
 
+// =============================================================================
+// Same-scale precision conversions
+// =============================================================================
+
+// Compile-time tests
+constexpr millicelsius mc_from_c = celsius(1);
+static_assert(mc_from_c.count() == 1000);
+constexpr millikelvin mk_from_k = kelvin(273);
+static_assert(mk_from_k.count() == 273000);
+static_assert(celsius(millicelsius(1500)).count() == 1);
+
+// Runtime tests
 TEST_CASE("celsius to millicelsius conversion", "[thermo][temperature]") {
     millicelsius mc = celsius(1);  // implicit, lossless
     REQUIRE(mc.count() == 1000);
@@ -148,6 +101,35 @@ TEST_CASE("millicelsius to celsius conversion", "[thermo][temperature]") {
     REQUIRE(c2.count() == 1);  // still truncates
 }
 
+// =============================================================================
+// Cross-scale conversions
+// =============================================================================
+
+// Compile-time tests
+static_assert(kelvin(celsius(0)).count() == 273);
+static_assert(kelvin(celsius(100)).count() == 373);
+static_assert(celsius(kelvin(273)).count() == 0);
+
+// Millikelvin precision (lossless)
+constexpr millikelvin mk_from_0c = temperature_cast<millikelvin>(celsius(0));
+static_assert(mk_from_0c.count() == 273150);
+constexpr millikelvin mk_from_mc = millicelsius(0);
+static_assert(mk_from_mc.count() == 273150);
+
+// Fahrenheit conversions
+static_assert(fahrenheit(32).count() == 32);
+static_assert(celsius(fahrenheit(32)).count() == 0);
+static_assert(celsius(fahrenheit(212)).count() == 100);
+static_assert(celsius(fahrenheit(0)).count() == -17);
+
+// Lossless conversion concept
+static_assert(_lossless_temperature_conversion<celsius_scale, delta_celsius, celsius_scale, delta_millicelsius>);
+static_assert(!_lossless_temperature_conversion<celsius_scale, delta_millicelsius, celsius_scale, delta_celsius>);
+static_assert(_lossless_temperature_conversion<kelvin_scale, delta_kelvin, kelvin_scale, delta_millikelvin>);
+static_assert(_lossless_temperature_conversion<celsius_scale, delta_celsius, kelvin_scale, delta_millikelvin>);
+static_assert(!_lossless_temperature_conversion<kelvin_scale, delta_kelvin, celsius_scale, delta_celsius>);
+
+// Runtime tests
 TEST_CASE("celsius to kelvin conversion", "[thermo][temperature]") {
     // 0°C = 273.15 K -> 273 (truncated)
     kelvin k0 = kelvin(celsius(0));
@@ -212,6 +194,19 @@ TEST_CASE("fahrenheit to celsius conversion", "[thermo][temperature]") {
     REQUIRE(cm40.count() == -40);
 }
 
+// =============================================================================
+// Temperature arithmetic
+// =============================================================================
+
+// Compile-time tests
+static_assert((celsius(20) + delta_celsius(5)).count() == 25);
+static_assert((celsius(20) - delta_celsius(5)).count() == 15);
+static_assert((delta_celsius(5) + celsius(20)).count() == 25);
+static_assert((celsius(20) + celsius(10)).count() == 30);
+static_assert((celsius(20) - celsius(10)).count() == 10);
+static_assert(difference(celsius(25), celsius(20)).count() == 5);
+
+// Runtime tests
 TEST_CASE("temperature arithmetic with delta", "[thermo][temperature]") {
     celsius t = celsius(20);
 
@@ -259,6 +254,20 @@ TEST_CASE("temperature compound assignment", "[thermo][temperature]") {
     REQUIRE(t.count() == 12);
 }
 
+// =============================================================================
+// Comparison operators
+// =============================================================================
+
+// Compile-time tests
+static_assert(celsius(20) == celsius(20));
+static_assert(celsius(20) != celsius(21));
+static_assert(celsius(20) < celsius(21));
+static_assert(celsius(21) > celsius(20));
+static_assert(celsius(20) <= celsius(21));
+static_assert(celsius(21) >= celsius(20));
+static_assert(millicelsius(celsius(1)) == millicelsius(1000));
+
+// Runtime tests
 TEST_CASE("temperature comparison", "[thermo][temperature]") {
     REQUIRE(celsius(20) == celsius(20));
     REQUIRE(celsius(20) != celsius(21));
@@ -270,6 +279,24 @@ TEST_CASE("temperature comparison", "[thermo][temperature]") {
     REQUIRE(celsius(21) >= celsius(20));
 }
 
+// =============================================================================
+// Literals
+// =============================================================================
+
+// Compile-time tests
+static_assert((20_c).count() == 20);
+static_assert((1000_mc).count() == 1000);
+static_assert((273_k).count() == 273);
+static_assert((273000_mk).count() == 273000);
+static_assert((32_f).count() == 32);
+static_assert((5_Δc).count() == 5);
+static_assert((1000_Δmc).count() == 1000);
+static_assert((5_Δk).count() == 5);
+static_assert((1000_Δmk).count() == 1000);
+static_assert((9_Δf).count() == 9);
+static_assert((9000_Δmf).count() == 9000);
+
+// Runtime tests
 TEST_CASE("temperature literals", "[thermo][literals]") {
     REQUIRE((20_c).count() == 20);
     REQUIRE((1000_mc).count() == 1000);
@@ -287,10 +314,129 @@ TEST_CASE("delta literals", "[thermo][literals]") {
     REQUIRE((9000_Δmf).count() == 9000);
 }
 
+// =============================================================================
+// String formatting
+// =============================================================================
+
+// Runtime tests
 TEST_CASE("to_string", "[thermo][string]") {
     REQUIRE(to_string(celsius(20)) == "20°C");
     REQUIRE(to_string(kelvin(273)) == "273K");
     REQUIRE(to_string(fahrenheit(32)) == "32°F");
     REQUIRE(to_string(millicelsius(1000)) == "1000m°C");
     REQUIRE(to_string(millikelvin(273150)) == "273150mK");
+}
+
+// =============================================================================
+// Min/max values
+// =============================================================================
+
+// Compile-time tests
+static_assert(celsius::min().count() < 0);
+static_assert(celsius::max().count() > 0);
+
+// =============================================================================
+// Rounding functions
+// =============================================================================
+
+// Compile-time tests for ceil
+static_assert(thermo::ceil<delta_celsius>(delta_millicelsius(12345)).count() == 13);
+static_assert(thermo::ceil<delta_celsius>(delta_millicelsius(12000)).count() == 12);
+static_assert(thermo::ceil<delta_celsius>(delta_millicelsius(-12345)).count() == -12);
+static_assert(thermo::ceil<delta_celsius>(delta_millicelsius(0)).count() == 0);
+
+// Compile-time tests for floor
+static_assert(thermo::floor<delta_celsius>(delta_millicelsius(12345)).count() == 12);
+static_assert(thermo::floor<delta_celsius>(delta_millicelsius(12000)).count() == 12);
+static_assert(thermo::floor<delta_celsius>(delta_millicelsius(-12345)).count() == -13);
+static_assert(thermo::floor<delta_celsius>(delta_millicelsius(0)).count() == 0);
+
+// Compile-time tests for trunc
+static_assert(thermo::trunc<delta_celsius>(delta_millicelsius(12345)).count() == 12);
+static_assert(thermo::trunc<delta_celsius>(delta_millicelsius(12000)).count() == 12);
+static_assert(thermo::trunc<delta_celsius>(delta_millicelsius(-12345)).count() == -12);
+static_assert(thermo::trunc<delta_celsius>(delta_millicelsius(0)).count() == 0);
+
+// Compile-time tests for round
+static_assert(thermo::round<delta_celsius>(delta_millicelsius(12345)).count() == 12);
+static_assert(thermo::round<delta_celsius>(delta_millicelsius(12500)).count() == 13);
+static_assert(thermo::round<delta_celsius>(delta_millicelsius(12600)).count() == 13);
+static_assert(thermo::round<delta_celsius>(delta_millicelsius(-12345)).count() == -12);
+static_assert(thermo::round<delta_celsius>(delta_millicelsius(-12500)).count() == -13);
+static_assert(thermo::round<delta_celsius>(delta_millicelsius(-12600)).count() == -13);
+
+// Runtime tests
+TEST_CASE("delta ceil", "[thermo][delta][rounding]") {
+    REQUIRE(thermo::ceil<delta_celsius>(delta_millicelsius(12345)).count() == 13);
+    REQUIRE(thermo::ceil<delta_celsius>(delta_millicelsius(12000)).count() == 12);
+    REQUIRE(thermo::ceil<delta_celsius>(delta_millicelsius(12001)).count() == 13);
+    REQUIRE(thermo::ceil<delta_celsius>(delta_millicelsius(-12345)).count() == -12);
+    REQUIRE(thermo::ceil<delta_celsius>(delta_millicelsius(-12000)).count() == -12);
+    REQUIRE(thermo::ceil<delta_celsius>(delta_millicelsius(-12001)).count() == -12);
+    REQUIRE(thermo::ceil<delta_celsius>(delta_millicelsius(0)).count() == 0);
+
+    // Same precision should return identical value
+    REQUIRE(thermo::ceil<delta_celsius>(delta_celsius(42)).count() == 42);
+
+    // Finer precision should return lossless conversion
+    REQUIRE(thermo::ceil<delta_millicelsius>(delta_celsius(5)).count() == 5000);
+}
+
+TEST_CASE("delta floor", "[thermo][delta][rounding]") {
+    REQUIRE(thermo::floor<delta_celsius>(delta_millicelsius(12345)).count() == 12);
+    REQUIRE(thermo::floor<delta_celsius>(delta_millicelsius(12000)).count() == 12);
+    REQUIRE(thermo::floor<delta_celsius>(delta_millicelsius(12999)).count() == 12);
+    REQUIRE(thermo::floor<delta_celsius>(delta_millicelsius(-12345)).count() == -13);
+    REQUIRE(thermo::floor<delta_celsius>(delta_millicelsius(-12000)).count() == -12);
+    REQUIRE(thermo::floor<delta_celsius>(delta_millicelsius(-12001)).count() == -13);
+    REQUIRE(thermo::floor<delta_celsius>(delta_millicelsius(0)).count() == 0);
+
+    // Same precision should return identical value
+    REQUIRE(thermo::floor<delta_celsius>(delta_celsius(42)).count() == 42);
+
+    // Finer precision should return lossless conversion
+    REQUIRE(thermo::floor<delta_millicelsius>(delta_celsius(5)).count() == 5000);
+}
+
+TEST_CASE("delta trunc", "[thermo][delta][rounding]") {
+    REQUIRE(thermo::trunc<delta_celsius>(delta_millicelsius(12345)).count() == 12);
+    REQUIRE(thermo::trunc<delta_celsius>(delta_millicelsius(12000)).count() == 12);
+    REQUIRE(thermo::trunc<delta_celsius>(delta_millicelsius(12999)).count() == 12);
+    REQUIRE(thermo::trunc<delta_celsius>(delta_millicelsius(-12345)).count() == -12);
+    REQUIRE(thermo::trunc<delta_celsius>(delta_millicelsius(-12000)).count() == -12);
+    REQUIRE(thermo::trunc<delta_celsius>(delta_millicelsius(-12999)).count() == -12);
+    REQUIRE(thermo::trunc<delta_celsius>(delta_millicelsius(0)).count() == 0);
+
+    // Same precision should return identical value
+    REQUIRE(thermo::trunc<delta_celsius>(delta_celsius(42)).count() == 42);
+
+    // Finer precision should return lossless conversion
+    REQUIRE(thermo::trunc<delta_millicelsius>(delta_celsius(5)).count() == 5000);
+}
+
+TEST_CASE("delta round", "[thermo][delta][rounding]") {
+    // Basic rounding
+    REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(12345)).count() == 12);
+    REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(12499)).count() == 12);
+    REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(12500)).count() == 13);  // Tie: round away from zero
+    REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(12501)).count() == 13);
+    REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(12999)).count() == 13);
+    REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(12000)).count() == 12);
+
+    // Negative values
+    REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(-12345)).count() == -12);
+    REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(-12499)).count() == -12);
+    REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(-12500)).count() == -13);  // Tie: round away from zero
+    REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(-12501)).count() == -13);
+    REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(-12999)).count() == -13);
+    REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(-12000)).count() == -12);
+
+    // Zero
+    REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(0)).count() == 0);
+
+    // Same precision should return identical value
+    REQUIRE(thermo::round<delta_celsius>(delta_celsius(42)).count() == 42);
+
+    // Finer precision should return lossless conversion
+    REQUIRE(thermo::round<delta_millicelsius>(delta_celsius(5)).count() == 5000);
 }

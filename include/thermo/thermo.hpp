@@ -267,6 +267,115 @@ constexpr ToDelta delta_cast(const delta<Rep, Precision>& d)
     }
 }
 
+/**
+ * @brief Rounds a delta up to the nearest representable value in the target precision.
+ *
+ * Returns the smallest value of type ToDelta that is greater than or equal to d.
+ * When converting to the same or finer precision, returns the exact conversion.
+ *
+ * @tparam ToDelta Target delta type.
+ * @tparam Rep     Source representation type.
+ * @tparam Precision Source precision.
+ * @param d        The delta to round.
+ * @return The rounded delta.
+ */
+template<typename ToDelta, typename Rep, typename Precision>
+constexpr ToDelta ceil(const delta<Rep, Precision>& d)
+{
+    ToDelta result = delta_cast<ToDelta>(d);
+    if (result < d) {
+        return ToDelta(result.count() + 1);
+    }
+    return result;
+}
+
+/**
+ * @brief Rounds a delta down to the nearest representable value in the target precision.
+ *
+ * Returns the largest value of type ToDelta that is less than or equal to d.
+ * When converting to the same or finer precision, returns the exact conversion.
+ *
+ * @tparam ToDelta Target delta type.
+ * @tparam Rep     Source representation type.
+ * @tparam Precision Source precision.
+ * @param d        The delta to round.
+ * @return The rounded delta.
+ */
+template<typename ToDelta, typename Rep, typename Precision>
+constexpr ToDelta floor(const delta<Rep, Precision>& d)
+{
+    ToDelta result = delta_cast<ToDelta>(d);
+    if (result > d) {
+        return ToDelta(result.count() - 1);
+    }
+    return result;
+}
+
+/**
+ * @brief Rounds a delta toward zero to the nearest representable value in the target precision.
+ *
+ * Returns the value of type ToDelta that is closest to zero.
+ * When converting to the same or finer precision, returns the exact conversion.
+ *
+ * @tparam ToDelta Target delta type.
+ * @tparam Rep     Source representation type.
+ * @tparam Precision Source precision.
+ * @param d        The delta to round.
+ * @return The rounded delta.
+ */
+template<typename ToDelta, typename Rep, typename Precision>
+constexpr ToDelta trunc(const delta<Rep, Precision>& d)
+{
+    return delta_cast<ToDelta>(d);
+}
+
+/**
+ * @brief Rounds a delta to the nearest representable value in the target precision.
+ *
+ * Returns the value of type ToDelta that is nearest to d. When exactly halfway
+ * between two values, rounds away from zero.
+ * When converting to the same or finer precision, returns the exact conversion.
+ *
+ * @tparam ToDelta Target delta type.
+ * @tparam Rep     Source representation type.
+ * @tparam Precision Source precision.
+ * @param d        The delta to round.
+ * @return The rounded delta.
+ */
+template<typename ToDelta, typename Rep, typename Precision>
+constexpr ToDelta round(const delta<Rep, Precision>& d)
+{
+    ToDelta result = delta_cast<ToDelta>(d);
+    if (result == d) {
+        return result;
+    }
+
+    // Calculate the midpoint between result and the next value
+    ToDelta next = (result < d) ? ToDelta(result.count() + 1) : ToDelta(result.count() - 1);
+
+    // Convert both to source type for comparison
+    auto result_in_source = delta_cast<delta<Rep, Precision>>(result);
+    auto next_in_source = delta_cast<delta<Rep, Precision>>(next);
+
+    // Calculate distances
+    auto dist_to_result = (d > result_in_source) ? d - result_in_source : result_in_source - d;
+    auto dist_to_next = (d > next_in_source) ? d - next_in_source : next_in_source - d;
+
+    // If closer to next, or exactly halfway and away from zero, use next
+    if (dist_to_next < dist_to_result) {
+        return next;
+    } else if (dist_to_next == dist_to_result) {
+        // Tie: round away from zero
+        if (d.count() >= 0) {
+            return (next > result) ? next : result;
+        } else {
+            return (next < result) ? next : result;
+        }
+    }
+
+    return result;
+}
+
 /** @brief Returns the sum of two deltas. */
 template<typename Rep1, typename Precision1, typename Rep2, typename Precision2>
 constexpr auto operator+(const delta<Rep1, Precision1>& lhs, const delta<Rep2, Precision2>& rhs)
