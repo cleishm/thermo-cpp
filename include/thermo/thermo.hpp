@@ -5,11 +5,11 @@
  * @brief Temperature types and arithmetic, modeled after std::chrono.
  */
 
-#include <ratio>
-#include <concepts>
-#include <limits>
 #include <compare>
+#include <concepts>
 #include <cstdint>
+#include <limits>
+#include <ratio>
 #include <string>
 #if __has_include(<format>) && defined(__cpp_lib_format)
 #include <format>
@@ -55,22 +55,15 @@ template<typename Rep>
 concept not_delta = !_is_specialization_of_v<Rep, delta>;
 
 template<typename Rep>
-struct delta_values
-{
+struct delta_values {
     /** @brief Returns a zero-length delta. */
-    static constexpr Rep
-    zero() noexcept
-    { return Rep(0); }
+    static constexpr Rep zero() noexcept { return Rep(0); }
 
     /** @brief Returns the maximum representable delta. */
-    static constexpr Rep
-    max() noexcept
-    { return std::numeric_limits<Rep>::max(); }
+    static constexpr Rep max() noexcept { return std::numeric_limits<Rep>::max(); }
 
     /** @brief Returns the minimum (most negative) representable delta. */
-    static constexpr Rep
-    min() noexcept
-    { return std::numeric_limits<Rep>::lowest(); }
+    static constexpr Rep min() noexcept { return std::numeric_limits<Rep>::lowest(); }
 };
 
 template<typename T>
@@ -117,9 +110,9 @@ concept _harmonic_precision = _safe_ratio_divide_den<From, To> == 1;
  */
 template<typename Rep, typename Precision>
 class delta {
-	static_assert(!is_delta<Rep>::value, "rep cannot be a thermo::delta");
-	static_assert(_is_ratio<Precision>::value, "precision must be a specialization of std::ratio");
-	static_assert(Precision::num > 0, "precision must be positive");
+    static_assert(!is_delta<Rep>::value, "rep cannot be a thermo::delta");
+    static_assert(_is_ratio<Precision>::value, "precision must be a specialization of std::ratio");
+    static_assert(Precision::num > 0, "precision must be positive");
 
 public:
     /** @brief The representation type. */
@@ -141,9 +134,9 @@ public:
      * @param r     The tick count.
      */
     template<typename Rep2>
-    requires std::convertible_to<const Rep2&, rep>
-            && (treat_as_inexact_v<rep> || !treat_as_inexact_v<Rep2>)
-    constexpr explicit delta(const Rep2& r) : _r(static_cast<rep>(r)) {}
+        requires std::convertible_to<const Rep2&, rep> && (treat_as_inexact_v<rep> || !treat_as_inexact_v<Rep2>)
+    constexpr explicit delta(const Rep2& r)
+        : _r(static_cast<rep>(r)) {}
 
     /**
      * @brief Constructs from another delta with different representation or precision.
@@ -156,82 +149,84 @@ public:
      * @param temp        The source delta.
      */
     template<typename Rep2, typename Precision2>
-    requires std::convertible_to<const Rep2&, rep> && (treat_as_inexact_v<rep>
-            || (_harmonic_precision<Precision2, precision> && !treat_as_inexact_v<Rep2>))
+        requires std::convertible_to<const Rep2&, rep> &&
+        (treat_as_inexact_v<rep> || (_harmonic_precision<Precision2, precision> && !treat_as_inexact_v<Rep2>))
     constexpr delta(const delta<Rep2, Precision2>& temp)
-            : _r(delta_cast<delta>(temp).count()) { }
+        : _r(delta_cast<delta>(temp).count()) {}
 
-	~delta() = default;
-	delta& operator=(const delta&) = default;
+    ~delta() = default;
+    delta& operator=(const delta&) = default;
 
     /** @brief Returns the tick count. */
     constexpr rep count() const { return _r; }
 
-    constexpr delta<typename std::common_type<rep>::type, precision>
-    operator+() const
-    { return delta<typename std::common_type<rep>::type, precision>(_r); }
+    constexpr delta<typename std::common_type<rep>::type, precision> operator+() const {
+        return delta<typename std::common_type<rep>::type, precision>(_r);
+    }
 
-    constexpr delta<typename std::common_type<rep>::type, precision>
-	operator-() const
-	{ return delta<typename std::common_type<rep>::type, precision>(-_r); }
+    constexpr delta<typename std::common_type<rep>::type, precision> operator-() const {
+        return delta<typename std::common_type<rep>::type, precision>(-_r);
+    }
 
-    constexpr delta&
-	operator++()
-	{ ++_r; return *this; }
+    constexpr delta& operator++() {
+        ++_r;
+        return *this;
+    }
 
-    constexpr delta
-	operator++(int)
-	{ return delta(_r++); }
+    constexpr delta operator++(int) { return delta(_r++); }
 
-    constexpr delta&
-	operator--()
-	{ --_r; return *this; }
+    constexpr delta& operator--() {
+        --_r;
+        return *this;
+    }
 
-    constexpr delta
-	operator--(int)
-	{ return delta(_r--); }
+    constexpr delta operator--(int) { return delta(_r--); }
 
-    constexpr delta&
-    operator+=(const delta& d)
-    { _r += d.count(); return *this; }
+    constexpr delta& operator+=(const delta& d) {
+        _r += d.count();
+        return *this;
+    }
 
-    constexpr delta&
-    operator-=(const delta& d)
-    { _r -= d.count(); return *this; }
+    constexpr delta& operator-=(const delta& d) {
+        _r -= d.count();
+        return *this;
+    }
 
-    constexpr delta&
-    operator*=(const rep& r)
-    { _r *= r; return *this; }
+    constexpr delta& operator*=(const rep& r) {
+        _r *= r;
+        return *this;
+    }
 
-    constexpr delta&
-    operator/=(const rep& r)
-    { _r /= r; return *this; }
+    constexpr delta& operator/=(const rep& r) {
+        _r /= r;
+        return *this;
+    }
 
     constexpr delta& operator%=(const rep& r)
-    requires (!treat_as_inexact_v<rep>)
-    { _r %= r; return *this; }
+        requires(!treat_as_inexact_v<rep>)
+    {
+        _r %= r;
+        return *this;
+    }
 
     constexpr delta& operator%=(const delta& d)
-    requires (!treat_as_inexact_v<rep>)
-    { _r %= d.count(); return *this; }
+        requires(!treat_as_inexact_v<rep>)
+    {
+        _r %= d.count();
+        return *this;
+    }
 
     /** @brief Returns a zero-length delta. */
-    static constexpr delta
-	zero() noexcept
-	{ return delta(delta_values<rep>::zero()); }
+    static constexpr delta zero() noexcept { return delta(delta_values<rep>::zero()); }
 
     /** @brief Returns the minimum (most negative) representable delta. */
-	static constexpr delta
-	min() noexcept
-	{ return delta(delta_values<rep>::min()); }
+    static constexpr delta min() noexcept { return delta(delta_values<rep>::min()); }
 
     /** @brief Returns the maximum representable delta. */
-	static constexpr delta
-	max() noexcept
-	{ return delta(delta_values<rep>::max()); }
+    static constexpr delta max() noexcept { return delta(delta_values<rep>::max()); }
 
 private:
-	rep _r{};
+    rep _r{};
 };
 
 /**
@@ -245,8 +240,7 @@ private:
  * @return The converted delta.
  */
 template<typename ToDelta, typename Rep, typename Precision>
-constexpr ToDelta delta_cast(const delta<Rep, Precision>& d)
-{
+constexpr ToDelta delta_cast(const delta<Rep, Precision>& d) {
     if constexpr (std::is_same_v<ToDelta, delta<Rep, Precision>>) {
         return d;
     } else {
@@ -262,7 +256,9 @@ constexpr ToDelta delta_cast(const delta<Rep, Precision>& d)
         } else if constexpr (cf::num == 1) {
             return ToDelta(static_cast<to_rep>(static_cast<cr>(d.count()) / static_cast<cr>(cf::den)));
         } else {
-            return ToDelta(static_cast<to_rep>(static_cast<cr>(d.count()) * static_cast<cr>(cf::num) / static_cast<cr>(cf::den)));
+            return ToDelta(
+                static_cast<to_rep>(static_cast<cr>(d.count()) * static_cast<cr>(cf::num) / static_cast<cr>(cf::den))
+            );
         }
     }
 }
@@ -280,8 +276,7 @@ constexpr ToDelta delta_cast(const delta<Rep, Precision>& d)
  * @return The rounded delta.
  */
 template<typename ToDelta, typename Rep, typename Precision>
-constexpr ToDelta ceil(const delta<Rep, Precision>& d)
-{
+constexpr ToDelta ceil(const delta<Rep, Precision>& d) {
     ToDelta result = delta_cast<ToDelta>(d);
     if (result < d) {
         return ToDelta(result.count() + 1);
@@ -302,8 +297,7 @@ constexpr ToDelta ceil(const delta<Rep, Precision>& d)
  * @return The rounded delta.
  */
 template<typename ToDelta, typename Rep, typename Precision>
-constexpr ToDelta floor(const delta<Rep, Precision>& d)
-{
+constexpr ToDelta floor(const delta<Rep, Precision>& d) {
     ToDelta result = delta_cast<ToDelta>(d);
     if (result > d) {
         return ToDelta(result.count() - 1);
@@ -324,8 +318,7 @@ constexpr ToDelta floor(const delta<Rep, Precision>& d)
  * @return The rounded delta.
  */
 template<typename ToDelta, typename Rep, typename Precision>
-constexpr ToDelta trunc(const delta<Rep, Precision>& d)
-{
+constexpr ToDelta trunc(const delta<Rep, Precision>& d) {
     return delta_cast<ToDelta>(d);
 }
 
@@ -343,8 +336,7 @@ constexpr ToDelta trunc(const delta<Rep, Precision>& d)
  * @return The rounded delta.
  */
 template<typename ToDelta, typename Rep, typename Precision>
-constexpr ToDelta round(const delta<Rep, Precision>& d)
-{
+constexpr ToDelta round(const delta<Rep, Precision>& d) {
     ToDelta result = delta_cast<ToDelta>(d);
     if (result == d) {
         return result;
@@ -379,8 +371,7 @@ constexpr ToDelta round(const delta<Rep, Precision>& d)
 /** @brief Returns the sum of two deltas. */
 template<typename Rep1, typename Precision1, typename Rep2, typename Precision2>
 constexpr auto operator+(const delta<Rep1, Precision1>& lhs, const delta<Rep2, Precision2>& rhs)
-    -> std::common_type_t<delta<Rep1, Precision1>, delta<Rep2, Precision2>>
-{
+    -> std::common_type_t<delta<Rep1, Precision1>, delta<Rep2, Precision2>> {
     using cd = std::common_type_t<delta<Rep1, Precision1>, delta<Rep2, Precision2>>;
     return cd(cd(lhs).count() + cd(rhs).count());
 }
@@ -388,37 +379,33 @@ constexpr auto operator+(const delta<Rep1, Precision1>& lhs, const delta<Rep2, P
 /** @brief Returns the difference of two deltas. */
 template<typename Rep1, typename Precision1, typename Rep2, typename Precision2>
 constexpr auto operator-(const delta<Rep1, Precision1>& lhs, const delta<Rep2, Precision2>& rhs)
-    -> std::common_type_t<delta<Rep1, Precision1>, delta<Rep2, Precision2>>
-{
+    -> std::common_type_t<delta<Rep1, Precision1>, delta<Rep2, Precision2>> {
     using cd = std::common_type_t<delta<Rep1, Precision1>, delta<Rep2, Precision2>>;
     return cd(cd(lhs).count() - cd(rhs).count());
 }
 
 /** @brief Multiplies a delta by a scalar. */
 template<typename Rep1, typename Precision, typename Rep2>
-requires not_delta<Rep2> && std::convertible_to<const Rep2&, std::common_type_t<Rep1, Rep2>>
+    requires not_delta<Rep2> && std::convertible_to<const Rep2&, std::common_type_t<Rep1, Rep2>>
 constexpr auto operator*(const delta<Rep1, Precision>& d, const Rep2& r)
-    -> delta<std::common_type_t<Rep1, Rep2>, Precision>
-{
+    -> delta<std::common_type_t<Rep1, Rep2>, Precision> {
     using cd = delta<std::common_type_t<Rep1, Rep2>, Precision>;
     return cd(cd(d).count() * r);
 }
 
 /** @brief Multiplies a scalar by a delta. */
 template<typename Rep1, typename Rep2, typename Precision>
-requires not_delta<Rep1> && std::convertible_to<const Rep1&, std::common_type_t<Rep1, Rep2>>
+    requires not_delta<Rep1> && std::convertible_to<const Rep1&, std::common_type_t<Rep1, Rep2>>
 constexpr auto operator*(const Rep1& r, const delta<Rep2, Precision>& d)
-    -> delta<std::common_type_t<Rep1, Rep2>, Precision>
-{
+    -> delta<std::common_type_t<Rep1, Rep2>, Precision> {
     return d * r;
 }
 
 /** @brief Divides a delta by a scalar. */
 template<typename Rep1, typename Precision, typename Rep2>
-requires not_delta<Rep2> && std::convertible_to<const Rep2&, std::common_type_t<Rep1, Rep2>>
+    requires not_delta<Rep2> && std::convertible_to<const Rep2&, std::common_type_t<Rep1, Rep2>>
 constexpr auto operator/(const delta<Rep1, Precision>& d, const Rep2& s)
-    -> delta<std::common_type_t<Rep1, Rep2>, Precision>
-{
+    -> delta<std::common_type_t<Rep1, Rep2>, Precision> {
     using cd = delta<std::common_type_t<Rep1, Rep2>, Precision>;
     return cd(cd(d).count() / s);
 }
@@ -426,44 +413,39 @@ constexpr auto operator/(const delta<Rep1, Precision>& d, const Rep2& s)
 /** @brief Divides two deltas, returning a scalar. */
 template<typename Rep1, typename Precision1, typename Rep2, typename Precision2>
 constexpr auto operator/(const delta<Rep1, Precision1>& lhs, const delta<Rep2, Precision2>& rhs)
-    -> std::common_type_t<Rep1, Rep2>
-{
+    -> std::common_type_t<Rep1, Rep2> {
     using cd = std::common_type_t<delta<Rep1, Precision1>, delta<Rep2, Precision2>>;
     return cd(lhs).count() / cd(rhs).count();
 }
 
 /** @brief Returns the remainder of dividing a delta by a scalar. */
 template<typename Rep1, typename Precision, typename Rep2>
-requires not_delta<Rep2> && std::convertible_to<const Rep2&, std::common_type_t<Rep1, Rep2>>
-        && (!treat_as_inexact_v<Rep1> && !treat_as_inexact_v<Rep2>)
+    requires not_delta<Rep2> && std::convertible_to<const Rep2&, std::common_type_t<Rep1, Rep2>> &&
+    (!treat_as_inexact_v<Rep1> && !treat_as_inexact_v<Rep2>)
 constexpr auto operator%(const delta<Rep1, Precision>& d, const Rep2& s)
-    -> delta<std::common_type_t<Rep1, Rep2>, Precision>
-{
+    -> delta<std::common_type_t<Rep1, Rep2>, Precision> {
     using cd = delta<std::common_type_t<Rep1, Rep2>, Precision>;
     return cd(cd(d).count() % s);
 }
 
 /** @brief Returns the remainder of dividing two deltas. */
 template<typename Rep1, typename Precision1, typename Rep2, typename Precision2>
-requires (!treat_as_inexact_v<Rep1> && !treat_as_inexact_v<Rep2>)
+    requires(!treat_as_inexact_v<Rep1> && !treat_as_inexact_v<Rep2>)
 constexpr auto operator%(const delta<Rep1, Precision1>& lhs, const delta<Rep2, Precision2>& rhs)
-    -> std::common_type_t<delta<Rep1, Precision1>, delta<Rep2, Precision2>>
-{
+    -> std::common_type_t<delta<Rep1, Precision1>, delta<Rep2, Precision2>> {
     using cd = std::common_type_t<delta<Rep1, Precision1>, delta<Rep2, Precision2>>;
     return cd(cd(lhs).count() % cd(rhs).count());
 }
 
 template<typename Rep1, typename Precision1, typename Rep2, typename Precision2>
-constexpr bool operator==(const delta<Rep1, Precision1>& lhs, const delta<Rep2, Precision2>& rhs)
-{
+constexpr bool operator==(const delta<Rep1, Precision1>& lhs, const delta<Rep2, Precision2>& rhs) {
     using ct = std::common_type_t<delta<Rep1, Precision1>, delta<Rep2, Precision2>>;
     return ct(lhs).count() == ct(rhs).count();
 }
 
 template<typename Rep1, typename Precision1, typename Rep2, typename Precision2>
-requires std::three_way_comparable<std::common_type_t<Rep1, Rep2>>
-constexpr auto operator<=>(const delta<Rep1, Precision1>& lhs, const delta<Rep2, Precision2>& rhs)
-{
+    requires std::three_way_comparable<std::common_type_t<Rep1, Rep2>>
+constexpr auto operator<=>(const delta<Rep1, Precision1>& lhs, const delta<Rep2, Precision2>& rhs) {
     using ct = std::common_type_t<delta<Rep1, Precision1>, delta<Rep2, Precision2>>;
     return ct(lhs).count() <=> ct(rhs).count();
 }
@@ -566,8 +548,7 @@ struct _lossless_temperature_conversion_impl {
 };
 
 template<typename Scale1, typename Delta1, typename Scale2, typename Delta2>
-concept _lossless_temperature_conversion =
-    _lossless_temperature_conversion_impl<Scale1, Delta1, Scale2, Delta2>::value;
+concept _lossless_temperature_conversion = _lossless_temperature_conversion_impl<Scale1, Delta1, Scale2, Delta2>::value;
 
 /**
  * @brief Trait to detect temperature specializations.
@@ -628,45 +609,45 @@ public:
      * @param r     The tick count in scale units.
      */
     template<typename Rep2>
-    requires std::convertible_to<const Rep2&, rep>
-            && (treat_as_inexact_v<rep> || !treat_as_inexact_v<Rep2>)
-    constexpr explicit temperature(const Rep2& r) : _d(static_cast<rep>(r)) {}
+        requires std::convertible_to<const Rep2&, rep> && (treat_as_inexact_v<rep> || !treat_as_inexact_v<Rep2>)
+    constexpr explicit temperature(const Rep2& r)
+        : _d(static_cast<rep>(r)) {}
 
     /**
      * @brief Constructs from a delta.
      * @param d The delta from the scale's zero point.
      */
-    constexpr explicit temperature(const Delta& d) : _d(d) {}
+    constexpr explicit temperature(const Delta& d)
+        : _d(d) {}
 
     // Same-scale, different precision - implicit when lossless
     template<typename Delta2>
-    requires (!std::is_same_v<Delta, Delta2>)
-            && (treat_as_inexact_v<rep>
-                || (_harmonic_precision<typename Delta2::precision, typename Delta::precision>
-                    && !treat_as_inexact_v<typename Delta2::rep>))
+        requires(!std::is_same_v<Delta, Delta2>) &&
+        (treat_as_inexact_v<rep> ||
+         (_harmonic_precision<typename Delta2::precision, typename Delta::precision> &&
+          !treat_as_inexact_v<typename Delta2::rep>))
     constexpr temperature(const temperature<Scale, Delta2>& t)
         : _d(delta_cast<Delta>(Delta2(t.count()))) {}
 
     // Same-scale, different precision - explicit when lossy
     template<typename Delta2>
-    requires (!std::is_same_v<Delta, Delta2>)
-            && (!treat_as_inexact_v<rep>)
-            && (!_harmonic_precision<typename Delta2::precision, typename Delta::precision>)
+        requires(!std::is_same_v<Delta, Delta2>) && (!treat_as_inexact_v<rep>) &&
+        (!_harmonic_precision<typename Delta2::precision, typename Delta::precision>)
     constexpr explicit temperature(const temperature<Scale, Delta2>& t)
         : _d(delta_cast<Delta>(Delta2(t.count()))) {}
 
     // Cross-scale/precision conversion - implicit when lossless
     template<typename Scale2, typename Delta2>
-    requires (!std::is_same_v<temperature, temperature<Scale2, Delta2>>)
-            && _lossless_temperature_conversion<Scale2, Delta2, Scale, Delta>
-            && (treat_as_inexact_v<rep> || !treat_as_inexact_v<typename Delta2::rep>)
+        requires(!std::is_same_v<temperature, temperature<Scale2, Delta2>>) &&
+        _lossless_temperature_conversion<Scale2, Delta2, Scale, Delta> &&
+        (treat_as_inexact_v<rep> || !treat_as_inexact_v<typename Delta2::rep>)
     constexpr temperature(const temperature<Scale2, Delta2>& t)
         : temperature(temperature_cast<temperature>(t)) {}
 
     // Cross-scale/precision conversion - explicit when lossy
     template<typename Scale2, typename Delta2>
-    requires (!std::is_same_v<temperature, temperature<Scale2, Delta2>>)
-            && (!_lossless_temperature_conversion<Scale2, Delta2, Scale, Delta>)
+        requires(!std::is_same_v<temperature, temperature<Scale2, Delta2>>) &&
+        (!_lossless_temperature_conversion<Scale2, Delta2, Scale, Delta>)
     constexpr explicit temperature(const temperature<Scale2, Delta2>& t)
         : temperature(temperature_cast<temperature>(t)) {}
 
@@ -676,41 +657,44 @@ public:
     /** @brief Returns the tick count. */
     constexpr rep count() const { return _d.count(); }
 
-    constexpr temperature& operator++()
-    { ++_d; return *this; }
+    constexpr temperature& operator++() {
+        ++_d;
+        return *this;
+    }
 
-    constexpr temperature operator++(int)
-    { return temperature(_d++); }
+    constexpr temperature operator++(int) { return temperature(_d++); }
 
-    constexpr temperature& operator--()
-    { --_d; return *this; }
+    constexpr temperature& operator--() {
+        --_d;
+        return *this;
+    }
 
-    constexpr temperature operator--(int)
-    { return temperature(_d--); }
-
-    template<typename Rep2, typename Precision2>
-    constexpr temperature& operator+=(const delta<Rep2, Precision2>& d)
-    { _d += d; return *this; }
+    constexpr temperature operator--(int) { return temperature(_d--); }
 
     template<typename Rep2, typename Precision2>
-    constexpr temperature& operator-=(const delta<Rep2, Precision2>& d)
-    { _d -= d; return *this; }
+    constexpr temperature& operator+=(const delta<Rep2, Precision2>& d) {
+        _d += d;
+        return *this;
+    }
+
+    template<typename Rep2, typename Precision2>
+    constexpr temperature& operator-=(const delta<Rep2, Precision2>& d) {
+        _d -= d;
+        return *this;
+    }
 
     /** @brief Returns the minimum representable temperature. */
-    static constexpr temperature min() noexcept
-    { return temperature(Delta::min()); }
+    static constexpr temperature min() noexcept { return temperature(Delta::min()); }
 
     /** @brief Returns the maximum representable temperature. */
-    static constexpr temperature max() noexcept
-    { return temperature(Delta::max()); }
+    static constexpr temperature max() noexcept { return temperature(Delta::max()); }
 
 private:
     Delta _d{};
 };
 
 template<typename ToTemp, typename Scale, typename Delta>
-constexpr ToTemp temperature_cast(const temperature<Scale, Delta>& t)
-{
+constexpr ToTemp temperature_cast(const temperature<Scale, Delta>& t) {
     using ToScale = typename ToTemp::scale;
     using ToDelta = typename ToTemp::delta_type;
     using to_rep = typename ToDelta::rep;
@@ -739,12 +723,11 @@ constexpr ToTemp temperature_cast(const temperature<Scale, Delta>& t)
             common_rep result = from_val * pr + or_;
             return ToTemp(ToDelta(static_cast<to_rep>(result)));
         } else {
-            constexpr intmax_t combined_den = static_cast<intmax_t>(prec_ratio::den) *
-                                               static_cast<intmax_t>(offset_ratio::den);
-            common_rep numerator = from_val * static_cast<common_rep>(prec_ratio::num) *
-                                   static_cast<common_rep>(offset_ratio::den) +
-                                   static_cast<common_rep>(offset_ratio::num) *
-                                   static_cast<common_rep>(prec_ratio::den);
+            constexpr intmax_t combined_den =
+                static_cast<intmax_t>(prec_ratio::den) * static_cast<intmax_t>(offset_ratio::den);
+            common_rep numerator =
+                from_val * static_cast<common_rep>(prec_ratio::num) * static_cast<common_rep>(offset_ratio::den) +
+                static_cast<common_rep>(offset_ratio::num) * static_cast<common_rep>(prec_ratio::den);
             common_rep result = numerator / static_cast<common_rep>(combined_den);
             return ToTemp(ToDelta(static_cast<to_rep>(result)));
         }
@@ -753,20 +736,16 @@ constexpr ToTemp temperature_cast(const temperature<Scale, Delta>& t)
 
 /** @brief Adds two temperatures on the same scale. */
 template<typename Scale, typename Delta1, typename Delta2>
-constexpr auto operator+(const temperature<Scale, Delta1>& lhs,
-                         const temperature<Scale, Delta2>& rhs)
-    -> temperature<Scale, std::common_type_t<Delta1, Delta2>>
-{
+constexpr auto operator+(const temperature<Scale, Delta1>& lhs, const temperature<Scale, Delta2>& rhs)
+    -> temperature<Scale, std::common_type_t<Delta1, Delta2>> {
     using cd = std::common_type_t<Delta1, Delta2>;
     return temperature<Scale, cd>(cd(lhs.count()) + cd(rhs.count()));
 }
 
 /** @brief Subtracts two temperatures on the same scale. */
 template<typename Scale, typename Delta1, typename Delta2>
-constexpr auto operator-(const temperature<Scale, Delta1>& lhs,
-                         const temperature<Scale, Delta2>& rhs)
-    -> temperature<Scale, std::common_type_t<Delta1, Delta2>>
-{
+constexpr auto operator-(const temperature<Scale, Delta1>& lhs, const temperature<Scale, Delta2>& rhs)
+    -> temperature<Scale, std::common_type_t<Delta1, Delta2>> {
     using cd = std::common_type_t<Delta1, Delta2>;
     return temperature<Scale, cd>(cd(lhs.count()) - cd(rhs.count()));
 }
@@ -780,57 +759,43 @@ constexpr auto operator-(const temperature<Scale, Delta1>& lhs,
  * @return lhs - rhs as a delta.
  */
 template<typename Scale, typename Delta1, typename Delta2>
-constexpr auto difference(const temperature<Scale, Delta1>& lhs,
-                          const temperature<Scale, Delta2>& rhs)
-    -> std::common_type_t<Delta1, Delta2>
-{
+constexpr auto difference(const temperature<Scale, Delta1>& lhs, const temperature<Scale, Delta2>& rhs)
+    -> std::common_type_t<Delta1, Delta2> {
     using cd = std::common_type_t<Delta1, Delta2>;
     return cd(lhs.count() - rhs.count());
 }
 
 /** @brief Adds a delta to a temperature. */
 template<typename Scale, typename Delta1, typename Rep2, typename Precision2>
-constexpr auto operator+(const temperature<Scale, Delta1>& t,
-                         const delta<Rep2, Precision2>& d)
-    -> temperature<Scale, std::common_type_t<Delta1, delta<Rep2, Precision2>>>
-{
+constexpr auto operator+(const temperature<Scale, Delta1>& t, const delta<Rep2, Precision2>& d)
+    -> temperature<Scale, std::common_type_t<Delta1, delta<Rep2, Precision2>>> {
     using result_delta = std::common_type_t<Delta1, delta<Rep2, Precision2>>;
-    return temperature<Scale, result_delta>(
-        result_delta(t.count()) + result_delta(d));
+    return temperature<Scale, result_delta>(result_delta(t.count()) + result_delta(d));
 }
 
 /** @brief Adds a temperature to a delta. */
 template<typename Rep1, typename Precision1, typename Scale, typename Delta2>
-constexpr auto operator+(const delta<Rep1, Precision1>& d,
-                         const temperature<Scale, Delta2>& t)
-    -> temperature<Scale, std::common_type_t<delta<Rep1, Precision1>, Delta2>>
-{
+constexpr auto operator+(const delta<Rep1, Precision1>& d, const temperature<Scale, Delta2>& t)
+    -> temperature<Scale, std::common_type_t<delta<Rep1, Precision1>, Delta2>> {
     return t + d;
 }
 
 /** @brief Subtracts a delta from a temperature. */
 template<typename Scale, typename Delta1, typename Rep2, typename Precision2>
-constexpr auto operator-(const temperature<Scale, Delta1>& t,
-                         const delta<Rep2, Precision2>& d)
-    -> temperature<Scale, std::common_type_t<Delta1, delta<Rep2, Precision2>>>
-{
+constexpr auto operator-(const temperature<Scale, Delta1>& t, const delta<Rep2, Precision2>& d)
+    -> temperature<Scale, std::common_type_t<Delta1, delta<Rep2, Precision2>>> {
     using result_delta = std::common_type_t<Delta1, delta<Rep2, Precision2>>;
-    return temperature<Scale, result_delta>(
-        result_delta(t.count()) - result_delta(d));
+    return temperature<Scale, result_delta>(result_delta(t.count()) - result_delta(d));
 }
 
 template<typename Scale, typename Delta1, typename Delta2>
-constexpr bool operator==(const temperature<Scale, Delta1>& lhs,
-                          const temperature<Scale, Delta2>& rhs)
-{
+constexpr bool operator==(const temperature<Scale, Delta1>& lhs, const temperature<Scale, Delta2>& rhs) {
     return lhs.count() == rhs.count();
 }
 
 template<typename Scale, typename Delta1, typename Delta2>
-requires std::three_way_comparable<std::common_type_t<typename Delta1::rep, typename Delta2::rep>>
-constexpr auto operator<=>(const temperature<Scale, Delta1>& lhs,
-                           const temperature<Scale, Delta2>& rhs)
-{
+    requires std::three_way_comparable<std::common_type_t<typename Delta1::rep, typename Delta2::rep>>
+constexpr auto operator<=>(const temperature<Scale, Delta1>& lhs, const temperature<Scale, Delta2>& rhs) {
     return lhs.count() <=> rhs.count();
 }
 
@@ -898,8 +863,8 @@ struct common_type<thermo::delta<Rep1, Precision1>, thermo::delta<Rep2, Precisio
 private:
     using common_precision = std::ratio<
         thermo::_gcd(Precision1::num, Precision2::num),
-        (Precision1::den / thermo::_gcd(Precision1::den, Precision2::den)) * Precision2::den
-    >;
+        (Precision1::den / thermo::_gcd(Precision1::den, Precision2::den)) * Precision2::den>;
+
 public:
     using type = thermo::delta<std::common_type_t<Rep1, Rep2>, common_precision>;
 };
@@ -912,20 +877,14 @@ struct common_type<thermo::temperature<Scale, Delta1>, thermo::temperature<Scale
 #if __has_include(<format>) && defined(__cpp_lib_format)
 template<>
 struct formatter<thermo::celsius> {
-    constexpr auto parse(format_parse_context& ctx) {
-        return ctx.begin();
-    }
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
 
-    auto format(thermo::celsius t, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}°C", t.count());
-    }
+    auto format(thermo::celsius t, format_context& ctx) const { return std::format_to(ctx.out(), "{}°C", t.count()); }
 };
 
 template<>
 struct formatter<thermo::decicelsius> {
-    constexpr auto parse(format_parse_context& ctx) {
-        return ctx.begin();
-    }
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
 
     auto format(thermo::decicelsius t, format_context& ctx) const {
         return std::format_to(ctx.out(), "{}d°C", t.count());
@@ -934,9 +893,7 @@ struct formatter<thermo::decicelsius> {
 
 template<>
 struct formatter<thermo::millicelsius> {
-    constexpr auto parse(format_parse_context& ctx) {
-        return ctx.begin();
-    }
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
 
     auto format(thermo::millicelsius t, format_context& ctx) const {
         return std::format_to(ctx.out(), "{}m°C", t.count());
@@ -945,20 +902,14 @@ struct formatter<thermo::millicelsius> {
 
 template<>
 struct formatter<thermo::kelvin> {
-    constexpr auto parse(format_parse_context& ctx) {
-        return ctx.begin();
-    }
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
 
-    auto format(thermo::kelvin t, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}K", t.count());
-    }
+    auto format(thermo::kelvin t, format_context& ctx) const { return std::format_to(ctx.out(), "{}K", t.count()); }
 };
 
 template<>
 struct formatter<thermo::decikelvin> {
-    constexpr auto parse(format_parse_context& ctx) {
-        return ctx.begin();
-    }
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
 
     auto format(thermo::decikelvin t, format_context& ctx) const {
         return std::format_to(ctx.out(), "{}dK", t.count());
@@ -967,9 +918,7 @@ struct formatter<thermo::decikelvin> {
 
 template<>
 struct formatter<thermo::millikelvin> {
-    constexpr auto parse(format_parse_context& ctx) {
-        return ctx.begin();
-    }
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
 
     auto format(thermo::millikelvin t, format_context& ctx) const {
         return std::format_to(ctx.out(), "{}mK", t.count());
@@ -978,9 +927,7 @@ struct formatter<thermo::millikelvin> {
 
 template<>
 struct formatter<thermo::fahrenheit> {
-    constexpr auto parse(format_parse_context& ctx) {
-        return ctx.begin();
-    }
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
 
     auto format(thermo::fahrenheit t, format_context& ctx) const {
         return std::format_to(ctx.out(), "{}°F", t.count());
@@ -989,9 +936,7 @@ struct formatter<thermo::fahrenheit> {
 
 template<>
 struct formatter<thermo::decifahrenheit> {
-    constexpr auto parse(format_parse_context& ctx) {
-        return ctx.begin();
-    }
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
 
     auto format(thermo::decifahrenheit t, format_context& ctx) const {
         return std::format_to(ctx.out(), "{}d°F", t.count());
@@ -1000,9 +945,7 @@ struct formatter<thermo::decifahrenheit> {
 
 template<>
 struct formatter<thermo::millifahrenheit> {
-    constexpr auto parse(format_parse_context& ctx) {
-        return ctx.begin();
-    }
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
 
     auto format(thermo::millifahrenheit t, format_context& ctx) const {
         return std::format_to(ctx.out(), "{}m°F", t.count());
@@ -1035,8 +978,7 @@ struct parse_int;
 template<char D, char... Rest>
 struct parse_int<D, Rest...> {
     static_assert(D >= '0' && D <= '9', "invalid digit");
-    static constexpr unsigned long long value =
-        pow10<D - '0', sizeof...(Rest)>::value + parse_int<Rest...>::value;
+    static constexpr unsigned long long value = pow10<D - '0', sizeof...(Rest)>::value + parse_int<Rest...>::value;
 };
 
 template<char D>
@@ -1049,8 +991,10 @@ template<typename Delta, char... Digits>
 constexpr Delta check_overflow() {
     using parsed = parse_int<Digits...>;
     constexpr typename Delta::rep repval = parsed::value;
-    static_assert(repval >= 0 && static_cast<unsigned long long>(repval) == parsed::value,
-                  "literal value cannot be represented by delta type");
+    static_assert(
+        repval >= 0 && static_cast<unsigned long long>(repval) == parsed::value,
+        "literal value cannot be represented by delta type"
+    );
     return Delta(repval);
 }
 

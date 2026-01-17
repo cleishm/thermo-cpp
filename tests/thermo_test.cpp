@@ -1,8 +1,8 @@
 // Unit tests for thermo library
 // Uses Catch2 test framework with compile-time static_asserts
 
-#include <thermo/thermo>
 #include <catch2/catch_test_macros.hpp>
+#include <thermo/thermo>
 
 using namespace thermo;
 using namespace thermo_literals;
@@ -85,7 +85,7 @@ static_assert(celsius(millicelsius(1500)).count() == 1);
 
 // Runtime tests
 TEST_CASE("celsius to millicelsius conversion", "[thermo][temperature]") {
-    millicelsius mc = celsius(1);  // implicit, lossless
+    millicelsius mc = celsius(1); // implicit, lossless
     REQUIRE(mc.count() == 1000);
 
     millicelsius mc2 = celsius(25);
@@ -95,10 +95,10 @@ TEST_CASE("celsius to millicelsius conversion", "[thermo][temperature]") {
 TEST_CASE("millicelsius to celsius conversion", "[thermo][temperature]") {
     // explicit required (lossy)
     celsius c = celsius(millicelsius(1500));
-    REQUIRE(c.count() == 1);  // truncates
+    REQUIRE(c.count() == 1); // truncates
 
     celsius c2 = celsius(millicelsius(1999));
-    REQUIRE(c2.count() == 1);  // still truncates
+    REQUIRE(c2.count() == 1); // still truncates
 }
 
 // =============================================================================
@@ -172,7 +172,7 @@ TEST_CASE("millicelsius to millikelvin implicit conversion", "[thermo][temperatu
     millikelvin mk = millicelsius(0);
     REQUIRE(mk.count() == 273150);
 
-    millikelvin mk1000 = millicelsius(1000);  // 1°C
+    millikelvin mk1000 = millicelsius(1000); // 1°C
     REQUIRE(mk1000.count() == 274150);
 }
 
@@ -418,7 +418,7 @@ TEST_CASE("delta round", "[thermo][delta][rounding]") {
     // Basic rounding
     REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(12345)).count() == 12);
     REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(12499)).count() == 12);
-    REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(12500)).count() == 13);  // Tie: round away from zero
+    REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(12500)).count() == 13); // Tie: round away from zero
     REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(12501)).count() == 13);
     REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(12999)).count() == 13);
     REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(12000)).count() == 12);
@@ -426,7 +426,7 @@ TEST_CASE("delta round", "[thermo][delta][rounding]") {
     // Negative values
     REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(-12345)).count() == -12);
     REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(-12499)).count() == -12);
-    REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(-12500)).count() == -13);  // Tie: round away from zero
+    REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(-12500)).count() == -13); // Tie: round away from zero
     REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(-12501)).count() == -13);
     REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(-12999)).count() == -13);
     REQUIRE(thermo::round<delta_celsius>(delta_millicelsius(-12000)).count() == -12);
