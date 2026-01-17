@@ -552,7 +552,7 @@ class temperature;
 
 /** @cond INTERNAL */
 template<typename Scale1, typename Delta1, typename Scale2, typename Delta2>
-concept _lossless_temperature_conversion = [] {
+struct _lossless_temperature_conversion_impl {
     using from_prec = typename Delta1::precision;
     using to_prec = typename Delta2::precision;
     using from_off = typename Scale1::offset;
@@ -562,8 +562,12 @@ concept _lossless_temperature_conversion = [] {
     using offset_diff = std::ratio_subtract<from_off, to_off>;
     using offset_in_target_units = std::ratio_divide<offset_diff, to_prec>;
 
-    return prec_ratio::den == 1 && offset_in_target_units::den == 1;
-}();
+    static constexpr bool value = prec_ratio::den == 1 && offset_in_target_units::den == 1;
+};
+
+template<typename Scale1, typename Delta1, typename Scale2, typename Delta2>
+concept _lossless_temperature_conversion =
+    _lossless_temperature_conversion_impl<Scale1, Delta1, Scale2, Delta2>::value;
 
 /**
  * @brief Trait to detect temperature specializations.
