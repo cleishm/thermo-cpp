@@ -9,6 +9,8 @@ project(thermo
 
 option(THERMO_BUILD_TESTS "Build tests" ${thermo_IS_TOP_LEVEL})
 
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 # Main library target (header-only)
 add_library(thermo INTERFACE)
 add_library(thermo::thermo ALIAS thermo)
