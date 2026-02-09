@@ -7,7 +7,7 @@ if(ESP_PLATFORM)
 endif()
 
 project(thermo
-    VERSION 1.1.0
+    VERSION 1.2.0
     DESCRIPTION "Type-safe temperature handling library modeled after std::chrono"
     HOMEPAGE_URL "https://github.com/cleishm/thermo-cpp"
     LANGUAGES CXX
