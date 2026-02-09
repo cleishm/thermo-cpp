@@ -327,6 +327,17 @@ TEST_CASE("to_string", "[thermo][string]") {
     REQUIRE(to_string(millikelvin(273150)) == "273150mK");
 }
 
+#if __has_include(<format>) && defined(__cpp_lib_format)
+TEST_CASE("std::format delta", "[thermo][string][delta]") {
+    REQUIRE(std::format("{}", delta_celsius(20)) == "20Δ°C");
+    REQUIRE(std::format("{}", delta_decicelsius(200)) == "200Δd°C");
+    REQUIRE(std::format("{}", delta_millicelsius(20000)) == "20000Δm°C");
+    REQUIRE(std::format("{}", delta_fahrenheit(36)) == "36Δ°F");
+    REQUIRE(std::format("{}", delta_decifahrenheit(360)) == "360Δd°F");
+    REQUIRE(std::format("{}", delta_millifahrenheit(36000)) == "36000Δm°F");
+}
+#endif
+
 // =============================================================================
 // Min/max values
 // =============================================================================

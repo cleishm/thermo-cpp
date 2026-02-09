@@ -951,6 +951,60 @@ struct formatter<thermo::millifahrenheit> {
         return std::format_to(ctx.out(), "{}m°F", t.count());
     }
 };
+
+template<>
+struct formatter<thermo::delta<int64_t>> {
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
+
+    auto format(thermo::delta<int64_t> d, format_context& ctx) const {
+        return std::format_to(ctx.out(), "{}Δ°C", d.count());
+    }
+};
+
+template<>
+struct formatter<thermo::delta<int64_t, std::deci>> {
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
+
+    auto format(thermo::delta<int64_t, std::deci> d, format_context& ctx) const {
+        return std::format_to(ctx.out(), "{}Δd°C", d.count());
+    }
+};
+
+template<>
+struct formatter<thermo::delta<int64_t, std::milli>> {
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
+
+    auto format(thermo::delta<int64_t, std::milli> d, format_context& ctx) const {
+        return std::format_to(ctx.out(), "{}Δm°C", d.count());
+    }
+};
+
+template<>
+struct formatter<thermo::delta_fahrenheit> {
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
+
+    auto format(thermo::delta_fahrenheit d, format_context& ctx) const {
+        return std::format_to(ctx.out(), "{}Δ°F", d.count());
+    }
+};
+
+template<>
+struct formatter<thermo::delta_decifahrenheit> {
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
+
+    auto format(thermo::delta_decifahrenheit d, format_context& ctx) const {
+        return std::format_to(ctx.out(), "{}Δd°F", d.count());
+    }
+};
+
+template<>
+struct formatter<thermo::delta_millifahrenheit> {
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
+
+    auto format(thermo::delta_millifahrenheit d, format_context& ctx) const {
+        return std::format_to(ctx.out(), "{}Δm°F", d.count());
+    }
+};
 #endif
 
 } // namespace std
