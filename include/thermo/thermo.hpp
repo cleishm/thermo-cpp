@@ -11,7 +11,15 @@
 #include <limits>
 #include <ratio>
 #include <string>
+#ifndef CONFIG_THERMO_STD_FORMAT
 #if __has_include(<format>) && defined(__cpp_lib_format)
+#define CONFIG_THERMO_STD_FORMAT 1
+#else
+#define CONFIG_THERMO_STD_FORMAT 0
+#endif
+#endif
+
+#if CONFIG_THERMO_STD_FORMAT
 #include <format>
 #endif
 #include <assert.h>
@@ -874,7 +882,7 @@ struct common_type<thermo::temperature<Scale, Delta1>, thermo::temperature<Scale
     using type = thermo::temperature<Scale, std::common_type_t<Delta1, Delta2>>;
 };
 
-#if __has_include(<format>) && defined(__cpp_lib_format)
+#if CONFIG_THERMO_STD_FORMAT
 template<>
 struct formatter<thermo::celsius> {
     constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }

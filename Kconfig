@@ -1,0 +1,11 @@
+menu "Thermo Library"
+
+    config THERMO_STD_FORMAT
+        bool "Enable std::format support"
+        default y
+        help
+            Include <format> and provide std::formatter specializations
+            for thermo types. Disable if <format> is unavailable or
+            undesired.
+
+endmenu
