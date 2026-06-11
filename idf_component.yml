@@ -1,12 +1,5 @@
-version: "1.2.1"
+version: "1.2.2"
 description: "Type-safe temperature handling library modeled after std::chrono"
 url: "https://github.com/cleishm/thermo-cpp"
 repository: "https://github.com/cleishm/thermo-cpp.git"
 license: "MIT"
-targets:
-  - esp32
-  - esp32s2
-  - esp32s3
-  - esp32c3
-  - esp32c6
-  - esp32h2
