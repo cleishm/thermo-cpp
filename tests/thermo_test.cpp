@@ -336,7 +336,30 @@ TEST_CASE("std::format delta", "[thermo][string][delta]") {
     REQUIRE(std::format("{}", delta_decifahrenheit(360)) == "360Δd°F");
     REQUIRE(std::format("{}", delta_millifahrenheit(36000)) == "36000Δm°F");
 }
+
+TEST_CASE("std::format real temperature", "[thermo][string][real]") {
+    // count() holds the degree value, so it formats directly (no precision suffix).
+    REQUIRE(std::format("{}", celsius_real(22.5)) == "22.5°C");
+    REQUIRE(std::format("{}", celsius_real(20.0)) == "20°C");
+    REQUIRE(std::format("{}", kelvin_real(295.65)) == "295.65K");
+    REQUIRE(std::format("{}", fahrenheit_real(72.5)) == "72.5°F");
+
+    // The standard floating-point format spec is honored.
+    REQUIRE(std::format("{:.2f}", celsius_real(22.5)) == "22.50°C");
+    REQUIRE(std::format("{:.1f}", celsius_real(22.53)) == "22.5°C");
+
+    // Intended use: cast an exact integer reading to a real-valued type for display.
+    REQUIRE(std::format("{:.1f}", temperature_cast<celsius_real>(millicelsius(22500))) == "22.5°C");
+    REQUIRE(std::format("{:.1f}", temperature_cast<fahrenheit_real>(millicelsius(22500))) == "72.5°F");
+}
 #endif
+
+TEST_CASE("real-valued temperature conversion", "[thermo][real]") {
+    // count() reads directly in scale degrees; same-scale casts are exact here.
+    REQUIRE(celsius_real(millicelsius(22500)).count() == 22.5); // implicit
+    REQUIRE(temperature_cast<celsius_real>(millicelsius(22500)).count() == 22.5);
+    REQUIRE(temperature_cast<celsius_real>(decicelsius(225)).count() == 22.5);
+}
 
 // =============================================================================
 // Min/max values

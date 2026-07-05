@@ -11,6 +11,7 @@
 #include <limits>
 #include <ratio>
 #include <string>
+#include <version> // pulls in __cpp_lib_format so the detection below works in non-IDF builds
 #ifndef CONFIG_THERMO_STD_FORMAT
 #if __has_include(<format>) && defined(__cpp_lib_format)
 #define CONFIG_THERMO_STD_FORMAT 1
@@ -826,6 +827,21 @@ using decifahrenheit = temperature<fahrenheit_scale, delta<int64_t, std::ratio<5
 /** @brief Fahrenheit with 0.001 degree precision. */
 using millifahrenheit = temperature<fahrenheit_scale, delta<int64_t, std::ratio<5, 900>>>;
 
+/**
+ * @brief Real-valued (double precision) Celsius.
+ *
+ * Unlike the integer-precision typedefs above, a real-valued temperature holds
+ * a floating-point degree value, so `count()` reads directly in scale degrees
+ * (e.g. 22.5) and formats as `22.5°C`. Obtain one from an exact reading with a
+ * cast — `temperature_cast<celsius_real>(millicelsius(22500))` — for display or
+ * further floating-point computation.
+ */
+using celsius_real = temperature<celsius_scale, delta<double>>;
+/** @brief Real-valued (double precision) Kelvin. @see celsius_real */
+using kelvin_real = temperature<kelvin_scale, delta<double>>;
+/** @brief Real-valued (double precision) Fahrenheit. @see celsius_real */
+using fahrenheit_real = temperature<fahrenheit_scale, delta<double, std::ratio<5, 9>>>;
+
 inline std::string to_string(celsius t) {
     return std::to_string(t.count()) + "°C";
 }
@@ -957,6 +973,57 @@ struct formatter<thermo::millifahrenheit> {
 
     auto format(thermo::millifahrenheit t, format_context& ctx) const {
         return std::format_to(ctx.out(), "{}m°F", t.count());
+    }
+};
+
+// Real-valued temperatures format their degree value directly (count() is the
+// value in scale degrees) and honor the standard floating-point format spec, so
+// std::format("{:.1f}", celsius_real(22.53)) == "22.5°C".
+template<>
+struct formatter<thermo::celsius_real> {
+    std::formatter<double> _num;
+
+    constexpr auto parse(format_parse_context& ctx) { return _num.parse(ctx); }
+
+    template<typename FormatContext>
+    auto format(thermo::celsius_real t, FormatContext& ctx) const {
+        auto out = _num.format(t.count(), ctx);
+        for (const char* p = "°C"; *p != '\0'; ++p) {
+            *out++ = *p;
+        }
+        return out;
+    }
+};
+
+template<>
+struct formatter<thermo::kelvin_real> {
+    std::formatter<double> _num;
+
+    constexpr auto parse(format_parse_context& ctx) { return _num.parse(ctx); }
+
+    template<typename FormatContext>
+    auto format(thermo::kelvin_real t, FormatContext& ctx) const {
+        auto out = _num.format(t.count(), ctx);
+        for (const char* p = "K"; *p != '\0'; ++p) {
+            *out++ = *p;
+        }
+        return out;
+    }
+};
+
+template<>
+struct formatter<thermo::fahrenheit_real> {
+    std::formatter<double> _num;
+
+    constexpr auto parse(format_parse_context& ctx) { return _num.parse(ctx); }
+
+    template<typename FormatContext>
+    auto format(thermo::fahrenheit_real t, FormatContext& ctx) const {
+        auto out = _num.format(t.count(), ctx);
+        for (const char* p = "°F"; *p != '\0'; ++p) {
+            *out++ = *p;
+        }
+        return out;
     }
 };
 

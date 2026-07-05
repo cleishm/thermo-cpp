@@ -7,7 +7,7 @@ A type-safe, header-only C++23 library for temperature handling, modeled after `
 ## Features
 
 - **Type-safe temperatures** with distinct types for Celsius, Kelvin, and Fahrenheit
-- **Configurable precision** (degree, decidegree, millidegree)
+- **Configurable precision** (degree, decidegree, millidegree) plus real-valued (`double`) types for display and computation
 - **Automatic conversions** between scales and precisions
 - **Lossless implicit conversions** (lossy conversions require explicit casts)
 - **Temperature deltas** distinct from absolute temperatures
@@ -91,6 +91,12 @@ if (millicelsius{20000} == celsius{20}) {
 
 // String conversion
 std::string s = to_string(room_temp);  // "20°C"
+
+// Real-valued display: cast an exact reading to a floating-point degree type,
+// whose formatter reads in degrees (rather than raw ticks).
+millicelsius reading{22500};
+celsius_real shown = reading;                        // 22.5 (implicit)
+std::string disp = std::format("{:.1f}", shown);     // "22.5°C"
 ```
 
 ## Temperature Types
@@ -108,6 +114,16 @@ std::string s = to_string(room_temp);  // "20°C"
 | `fahrenheit` | Fahrenheit | 1°F |
 | `decifahrenheit` | Fahrenheit | 0.1°F |
 | `millifahrenheit` | Fahrenheit | 0.001°F |
+| `celsius_real` | Celsius | real-valued (`double`) |
+| `kelvin_real` | Kelvin | real-valued (`double`) |
+| `fahrenheit_real` | Fahrenheit | real-valued (`double`) |
+
+The `*_real` types hold a floating-point degree value, so `count()` reads
+directly in scale degrees (e.g. `22.5`) and `std::format` renders them as
+`22.5°C`, honoring the standard float format spec (`{:.1f}` → `22.5°C`). Obtain
+one from an exact reading with a cast — see [Usage](#usage). The integer types
+format as their exact stored value with a precision-qualified unit (e.g.
+`millicelsius{22500}` → `22500m°C`).
 
 ### Temperature Deltas
 
