@@ -1,4 +1,4 @@
-version: "1.2.2"
+version: "1.3.0"
 description: "Type-safe temperature handling library modeled after std::chrono"
 url: "https://github.com/cleishm/thermo-cpp"
 repository: "https://github.com/cleishm/thermo-cpp.git"
