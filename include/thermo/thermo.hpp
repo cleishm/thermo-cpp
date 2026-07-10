@@ -476,30 +476,76 @@ using delta_fahrenheit = delta<int64_t, std::ratio<5, 9>>;
 /** @brief Delta with 0.1°F precision. */
 using delta_decifahrenheit = delta<int64_t, std::ratio<5, 90>>;
 /** @brief Delta with 0.001°F precision. */
-using delta_millifahrenheit = delta<int64_t, std::ratio<5, 900>>;
+using delta_millifahrenheit = delta<int64_t, std::ratio<5, 9000>>;
 
-inline std::string to_string(delta<int64_t> d) {
-    return std::to_string(d.count()) + "Δ°C";
+/** @cond INTERNAL */
+// SI prefix for a degrees-per-count ratio; nullptr when unmapped.
+template<typename Ratio>
+struct _si_prefix {
+    static constexpr const char* value = nullptr;
+};
+template<>
+struct _si_prefix<std::ratio<1>> {
+    static constexpr const char* value = "";
+};
+template<>
+struct _si_prefix<std::ratio<1, 10>> {
+    static constexpr const char* value = "d";
+};
+template<>
+struct _si_prefix<std::ratio<1, 1000>> {
+    static constexpr const char* value = "m";
+};
+template<typename Ratio>
+inline constexpr const char* _si_prefix_v = _si_prefix<typename Ratio::type>::value;
+
+// Display family (degree size + unit suffix) for a delta precision, keyed on
+// NORMALIZED ratios. Undefined primary template: unmapped precisions have no
+// determinable unit and are not formattable.
+template<typename Precision>
+struct _delta_unit;
+struct _celsius_delta_unit {
+    using degree = std::ratio<1>;
+    static constexpr const char* suffix = "°C";
+};
+struct _fahrenheit_delta_unit {
+    using degree = std::ratio<5, 9>;
+    static constexpr const char* suffix = "°F";
+};
+template<>
+struct _delta_unit<std::ratio<1>> : _celsius_delta_unit {};
+template<>
+struct _delta_unit<std::ratio<1, 10>> : _celsius_delta_unit {};
+template<>
+struct _delta_unit<std::ratio<1, 1000>> : _celsius_delta_unit {};
+template<>
+struct _delta_unit<std::ratio<5, 9>> : _fahrenheit_delta_unit {};
+template<>
+struct _delta_unit<std::ratio<1, 18>> : _fahrenheit_delta_unit {}; // 5/90 normalized
+template<>
+struct _delta_unit<std::ratio<1, 1800>> : _fahrenheit_delta_unit {}; // 5/9000 normalized
+
+// Appends a NUL-terminated string to a format output iterator.
+template<typename OutputIt>
+constexpr OutputIt _format_append(OutputIt out, const char* s) {
+    for (; *s != '\0'; ++s) {
+        *out++ = *s;
+    }
+    return out;
 }
+/** @endcond */
 
-inline std::string to_string(delta<int64_t, std::deci> d) {
-    return std::to_string(d.count()) + "Δd°C";
-}
-
-inline std::string to_string(delta<int64_t, std::milli> d) {
-    return std::to_string(d.count()) + "Δm°C";
-}
-
-inline std::string to_string(delta_fahrenheit d) {
-    return std::to_string(d.count()) + "Δ°F";
-}
-
-inline std::string to_string(delta_decifahrenheit d) {
-    return std::to_string(d.count()) + "Δd°F";
-}
-
-inline std::string to_string(delta_millifahrenheit d) {
-    return std::to_string(d.count()) + "Δm°F";
+/**
+ * @brief Renders a delta as its exact count with a precision-qualified unit,
+ * e.g. `to_string(delta_millicelsius(1500)) == "1500Δm°C"`.
+ */
+template<typename Rep, typename Precision>
+    requires(!treat_as_inexact_v<Rep>)
+std::string to_string(const delta<Rep, Precision>& d) {
+    using unit = _delta_unit<typename delta<Rep, Precision>::precision>;
+    using dpc = std::ratio_divide<typename delta<Rep, Precision>::precision, typename unit::degree>;
+    static_assert(_si_prefix_v<dpc> != nullptr, "thermo: precision has no SI prefix");
+    return std::to_string(d.count()) + "Δ" + _si_prefix_v<dpc> + unit::suffix;
 }
 
 // ============================================================================
@@ -514,6 +560,7 @@ inline std::string to_string(delta_millifahrenheit d) {
  */
 struct celsius_scale {
     using offset = std::ratio<27315, 100>;
+    using degree = std::ratio<1>;
     static constexpr const char* suffix = "°C";
 };
 
@@ -524,6 +571,7 @@ struct celsius_scale {
  */
 struct kelvin_scale {
     using offset = std::ratio<0>;
+    using degree = std::ratio<1>;
     static constexpr const char* suffix = "K";
 };
 
@@ -534,6 +582,7 @@ struct kelvin_scale {
  */
 struct fahrenheit_scale {
     using offset = std::ratio<45967, 180>;
+    using degree = std::ratio<5, 9>;
     static constexpr const char* suffix = "°F";
 };
 /** @endcond */
@@ -825,57 +874,18 @@ using fahrenheit = temperature<fahrenheit_scale, delta<int64_t, std::ratio<5, 9>
 /** @brief Fahrenheit with 0.1 degree precision. */
 using decifahrenheit = temperature<fahrenheit_scale, delta<int64_t, std::ratio<5, 90>>>;
 /** @brief Fahrenheit with 0.001 degree precision. */
-using millifahrenheit = temperature<fahrenheit_scale, delta<int64_t, std::ratio<5, 900>>>;
+using millifahrenheit = temperature<fahrenheit_scale, delta<int64_t, std::ratio<5, 9000>>>;
 
 /**
- * @brief Real-valued (double precision) Celsius.
- *
- * Unlike the integer-precision typedefs above, a real-valued temperature holds
- * a floating-point degree value, so `count()` reads directly in scale degrees
- * (e.g. 22.5) and formats as `22.5°C`. Obtain one from an exact reading with a
- * cast — `temperature_cast<celsius_real>(millicelsius(22500))` — for display or
- * further floating-point computation.
+ * @brief Renders a temperature as its exact count with a precision-qualified
+ * unit, e.g. `to_string(millicelsius(22500)) == "22500m°C"`.
  */
-using celsius_real = temperature<celsius_scale, delta<double>>;
-/** @brief Real-valued (double precision) Kelvin. @see celsius_real */
-using kelvin_real = temperature<kelvin_scale, delta<double>>;
-/** @brief Real-valued (double precision) Fahrenheit. @see celsius_real */
-using fahrenheit_real = temperature<fahrenheit_scale, delta<double, std::ratio<5, 9>>>;
-
-inline std::string to_string(celsius t) {
-    return std::to_string(t.count()) + "°C";
-}
-
-inline std::string to_string(decicelsius t) {
-    return std::to_string(t.count()) + "d°C";
-}
-
-inline std::string to_string(millicelsius t) {
-    return std::to_string(t.count()) + "m°C";
-}
-
-inline std::string to_string(kelvin t) {
-    return std::to_string(t.count()) + "K";
-}
-
-inline std::string to_string(decikelvin t) {
-    return std::to_string(t.count()) + "dK";
-}
-
-inline std::string to_string(millikelvin t) {
-    return std::to_string(t.count()) + "mK";
-}
-
-inline std::string to_string(fahrenheit t) {
-    return std::to_string(t.count()) + "°F";
-}
-
-inline std::string to_string(decifahrenheit t) {
-    return std::to_string(t.count()) + "d°F";
-}
-
-inline std::string to_string(millifahrenheit t) {
-    return std::to_string(t.count()) + "m°F";
+template<typename Scale, typename Rep, typename Precision>
+    requires(!treat_as_inexact_v<Rep>)
+std::string to_string(const temperature<Scale, delta<Rep, Precision>>& t) {
+    using dpc = std::ratio_divide<typename delta<Rep, Precision>::precision, typename Scale::degree>;
+    static_assert(_si_prefix_v<dpc> != nullptr, "thermo: precision has no SI prefix");
+    return std::to_string(t.count()) + _si_prefix_v<dpc> + Scale::suffix;
 }
 
 } // namespace thermo
@@ -899,185 +909,84 @@ struct common_type<thermo::temperature<Scale, Delta1>, thermo::temperature<Scale
 };
 
 #if CONFIG_THERMO_STD_FORMAT
-template<>
-struct formatter<thermo::celsius> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(thermo::celsius t, format_context& ctx) const { return std::format_to(ctx.out(), "{}°C", t.count()); }
-};
-
-template<>
-struct formatter<thermo::decicelsius> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(thermo::decicelsius t, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}d°C", t.count());
-    }
-};
-
-template<>
-struct formatter<thermo::millicelsius> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(thermo::millicelsius t, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}m°C", t.count());
-    }
-};
-
-template<>
-struct formatter<thermo::kelvin> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(thermo::kelvin t, format_context& ctx) const { return std::format_to(ctx.out(), "{}K", t.count()); }
-};
-
-template<>
-struct formatter<thermo::decikelvin> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(thermo::decikelvin t, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}dK", t.count());
-    }
-};
-
-template<>
-struct formatter<thermo::millikelvin> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(thermo::millikelvin t, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}mK", t.count());
-    }
-};
-
-template<>
-struct formatter<thermo::fahrenheit> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(thermo::fahrenheit t, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}°F", t.count());
-    }
-};
-
-template<>
-struct formatter<thermo::decifahrenheit> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(thermo::decifahrenheit t, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}d°F", t.count());
-    }
-};
-
-template<>
-struct formatter<thermo::millifahrenheit> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(thermo::millifahrenheit t, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}m°F", t.count());
-    }
-};
-
-// Real-valued temperatures format their degree value directly (count() is the
-// value in scale degrees) and honor the standard floating-point format spec, so
-// std::format("{:.1f}", celsius_real(22.53)) == "22.5°C".
-template<>
-struct formatter<thermo::celsius_real> {
+// "{}" prints the exact stored count with a precision-qualified unit
+// (millicelsius(22500) -> "22500m°C"). A non-empty spec is applied to the
+// value in scale degrees (as double), honoring the standard floating-point
+// format spec: std::format("{:.1f}", millicelsius(22534)) == "22.5°C".
+template<typename Scale, typename Rep, typename Precision>
+struct formatter<thermo::temperature<Scale, thermo::delta<Rep, Precision>>> {
+private:
+    using _delta_t = thermo::delta<Rep, Precision>;
+    using _dpc = typename ratio_divide<typename _delta_t::precision, typename Scale::degree>::type;
+    static constexpr const char* _prefix = thermo::_si_prefix_v<_dpc>;
     std::formatter<double> _num;
+    bool _has_spec = false;
 
-    constexpr auto parse(format_parse_context& ctx) { return _num.parse(ctx); }
+public:
+    constexpr auto parse(format_parse_context& ctx) {
+        auto it = ctx.begin();
+        if (it == ctx.end() || *it == '}') {
+            if (_prefix == nullptr) {
+                throw format_error("thermo: precision has no SI prefix; use an explicit format spec");
+            }
+            return it;
+        }
+        _has_spec = true;
+        return _num.parse(ctx);
+    }
 
     template<typename FormatContext>
-    auto format(thermo::celsius_real t, FormatContext& ctx) const {
-        auto out = _num.format(t.count(), ctx);
-        for (const char* p = "°C"; *p != '\0'; ++p) {
-            *out++ = *p;
+    auto format(const thermo::temperature<Scale, _delta_t>& t, FormatContext& ctx) const {
+        if (_has_spec) {
+            double degrees = static_cast<double>(t.count()) * _dpc::num / _dpc::den;
+            auto out = _num.format(degrees, ctx);
+            return thermo::_format_append(out, Scale::suffix);
         }
-        return out;
+        auto out = std::format_to(ctx.out(), "{}", t.count());
+        out = thermo::_format_append(out, _prefix);
+        return thermo::_format_append(out, Scale::suffix);
     }
 };
 
-template<>
-struct formatter<thermo::kelvin_real> {
+// "{}" prints the exact stored count with a precision-qualified unit
+// (delta_millicelsius(1500) -> "1500Δm°C"). A non-empty spec is applied to
+// the value in scale degrees (as double):
+// std::format("{:.1f}", delta_millicelsius(1500)) == "1.5Δ°C".
+template<typename Rep, typename Precision>
+struct formatter<thermo::delta<Rep, Precision>> {
+private:
+    using _delta_t = thermo::delta<Rep, Precision>;
+    using _unit = thermo::_delta_unit<typename _delta_t::precision>; // hard error if unmapped
+    using _dpc = typename ratio_divide<typename _delta_t::precision, typename _unit::degree>::type;
+    static constexpr const char* _prefix = thermo::_si_prefix_v<_dpc>;
     std::formatter<double> _num;
+    bool _has_spec = false;
 
-    constexpr auto parse(format_parse_context& ctx) { return _num.parse(ctx); }
+public:
+    constexpr auto parse(format_parse_context& ctx) {
+        auto it = ctx.begin();
+        if (it == ctx.end() || *it == '}') {
+            if (_prefix == nullptr) {
+                throw format_error("thermo: precision has no SI prefix; use an explicit format spec");
+            }
+            return it;
+        }
+        _has_spec = true;
+        return _num.parse(ctx);
+    }
 
     template<typename FormatContext>
-    auto format(thermo::kelvin_real t, FormatContext& ctx) const {
-        auto out = _num.format(t.count(), ctx);
-        for (const char* p = "K"; *p != '\0'; ++p) {
-            *out++ = *p;
+    auto format(const _delta_t& d, FormatContext& ctx) const {
+        if (_has_spec) {
+            double degrees = static_cast<double>(d.count()) * _dpc::num / _dpc::den;
+            auto out = _num.format(degrees, ctx);
+            out = thermo::_format_append(out, "Δ");
+            return thermo::_format_append(out, _unit::suffix);
         }
-        return out;
-    }
-};
-
-template<>
-struct formatter<thermo::fahrenheit_real> {
-    std::formatter<double> _num;
-
-    constexpr auto parse(format_parse_context& ctx) { return _num.parse(ctx); }
-
-    template<typename FormatContext>
-    auto format(thermo::fahrenheit_real t, FormatContext& ctx) const {
-        auto out = _num.format(t.count(), ctx);
-        for (const char* p = "°F"; *p != '\0'; ++p) {
-            *out++ = *p;
-        }
-        return out;
-    }
-};
-
-template<>
-struct formatter<thermo::delta<int64_t>> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(thermo::delta<int64_t> d, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}Δ°C", d.count());
-    }
-};
-
-template<>
-struct formatter<thermo::delta<int64_t, std::deci>> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(thermo::delta<int64_t, std::deci> d, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}Δd°C", d.count());
-    }
-};
-
-template<>
-struct formatter<thermo::delta<int64_t, std::milli>> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(thermo::delta<int64_t, std::milli> d, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}Δm°C", d.count());
-    }
-};
-
-template<>
-struct formatter<thermo::delta_fahrenheit> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(thermo::delta_fahrenheit d, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}Δ°F", d.count());
-    }
-};
-
-template<>
-struct formatter<thermo::delta_decifahrenheit> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(thermo::delta_decifahrenheit d, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}Δd°F", d.count());
-    }
-};
-
-template<>
-struct formatter<thermo::delta_millifahrenheit> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(thermo::delta_millifahrenheit d, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}Δm°F", d.count());
+        auto out = std::format_to(ctx.out(), "{}", d.count());
+        out = thermo::_format_append(out, "Δ");
+        out = thermo::_format_append(out, _prefix);
+        return thermo::_format_append(out, _unit::suffix);
     }
 };
 #endif

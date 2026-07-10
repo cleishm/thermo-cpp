@@ -92,11 +92,11 @@ if (millicelsius{20000} == celsius{20}) {
 // String conversion
 std::string s = to_string(room_temp);  // "20°C"
 
-// Real-valued display: cast an exact reading to a floating-point degree type,
-// whose formatter reads in degrees (rather than raw ticks).
+// Formatting: a floating-point format spec renders in scale degrees,
+// while the default renders the exact stored value.
 millicelsius reading{22500};
-celsius_real shown = reading;                        // 22.5 (implicit)
-std::string disp = std::format("{:.1f}", shown);     // "22.5°C"
+std::string disp = std::format("{:.1f}", reading);  // "22.5°C"
+std::string raw  = std::format("{}", reading);      // "22500m°C" (exact stored value)
 ```
 
 ## Temperature Types
@@ -114,16 +114,11 @@ std::string disp = std::format("{:.1f}", shown);     // "22.5°C"
 | `fahrenheit` | Fahrenheit | 1°F |
 | `decifahrenheit` | Fahrenheit | 0.1°F |
 | `millifahrenheit` | Fahrenheit | 0.001°F |
-| `celsius_real` | Celsius | real-valued (`double`) |
-| `kelvin_real` | Kelvin | real-valued (`double`) |
-| `fahrenheit_real` | Fahrenheit | real-valued (`double`) |
 
-The `*_real` types hold a floating-point degree value, so `count()` reads
-directly in scale degrees (e.g. `22.5`) and `std::format` renders them as
-`22.5°C`, honoring the standard float format spec (`{:.1f}` → `22.5°C`). Obtain
-one from an exact reading with a cast — see [Usage](#usage). The integer types
-format as their exact stored value with a precision-qualified unit (e.g.
-`millicelsius{22500}` → `22500m°C`).
+With `std::format`, `{}` renders a temperature as its exact stored value with a
+precision-qualified unit (e.g. `millicelsius{22500}` → `22500m°C`), while any
+floating-point format spec renders the value in scale degrees — no cast needed
+(`{:.1f}` of `millicelsius{22534}` → `22.5°C`).
 
 ### Temperature Deltas
 
