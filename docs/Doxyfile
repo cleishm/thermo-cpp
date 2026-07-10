@@ -6,7 +6,7 @@
 
 DOXYFILE_ENCODING      = UTF-8
 PROJECT_NAME           = "thermo"
-PROJECT_NUMBER         = "1.3.0"
+PROJECT_NUMBER         = "2.0.0"
 PROJECT_BRIEF          = "Type-safe temperature handling library modeled after std::chrono"
 PROJECT_LOGO           =
 OUTPUT_DIRECTORY       = .
