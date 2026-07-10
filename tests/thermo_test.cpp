@@ -194,6 +194,25 @@ TEST_CASE("fahrenheit to celsius conversion", "[thermo][temperature]") {
     REQUIRE(cm40.count() == -40);
 }
 
+TEST_CASE("millifahrenheit conversion", "[thermo][temperature]") {
+    // 0.001°F precision: 1°F = 1000 counts
+    REQUIRE(temperature_cast<millifahrenheit>(fahrenheit(1)).count() == 1000);
+    millifahrenheit mf = fahrenheit(1); // finer precision, implicit
+    REQUIRE(mf.count() == 1000);
+    REQUIRE(temperature_cast<millifahrenheit>(fahrenheit(72)).count() == 72000);
+
+    // Cross-scale: 0°C = 32°F = 32000 millifahrenheit
+    REQUIRE(temperature_cast<millifahrenheit>(celsius(0)).count() == 32000);
+
+    // 72.5°F in decifahrenheit -> millifahrenheit
+    REQUIRE(millifahrenheit(decifahrenheit(725)).count() == 72500);
+
+    // Deltas
+    REQUIRE(delta_millifahrenheit(delta_fahrenheit(1)).count() == 1000);
+    REQUIRE(delta_millifahrenheit(9000) == delta_celsius(5));
+    REQUIRE(delta_millifahrenheit(9000) == delta_millicelsius(5000));
+}
+
 // =============================================================================
 // Temperature arithmetic
 // =============================================================================
@@ -325,9 +344,15 @@ TEST_CASE("to_string", "[thermo][string]") {
     REQUIRE(to_string(fahrenheit(32)) == "32°F");
     REQUIRE(to_string(millicelsius(1000)) == "1000m°C");
     REQUIRE(to_string(millikelvin(273150)) == "273150mK");
+    REQUIRE(to_string(decicelsius(200)) == "200d°C");
+    REQUIRE(to_string(decikelvin(2955)) == "2955dK");
+    REQUIRE(to_string(decifahrenheit(725)) == "725d°F");
+    REQUIRE(to_string(millifahrenheit(72500)) == "72500m°F");
+    REQUIRE(to_string(delta_celsius(5)) == "5Δ°C");
+    REQUIRE(to_string(delta_millifahrenheit(36000)) == "36000Δm°F");
 }
 
-#if __has_include(<format>) && defined(__cpp_lib_format)
+#if CONFIG_THERMO_STD_FORMAT
 TEST_CASE("std::format delta", "[thermo][string][delta]") {
     REQUIRE(std::format("{}", delta_celsius(20)) == "20Δ°C");
     REQUIRE(std::format("{}", delta_decicelsius(200)) == "200Δd°C");
@@ -337,28 +362,47 @@ TEST_CASE("std::format delta", "[thermo][string][delta]") {
     REQUIRE(std::format("{}", delta_millifahrenheit(36000)) == "36000Δm°F");
 }
 
-TEST_CASE("std::format real temperature", "[thermo][string][real]") {
-    // count() holds the degree value, so it formats directly (no precision suffix).
-    REQUIRE(std::format("{}", celsius_real(22.5)) == "22.5°C");
-    REQUIRE(std::format("{}", celsius_real(20.0)) == "20°C");
-    REQUIRE(std::format("{}", kelvin_real(295.65)) == "295.65K");
-    REQUIRE(std::format("{}", fahrenheit_real(72.5)) == "72.5°F");
-
-    // The standard floating-point format spec is honored.
-    REQUIRE(std::format("{:.2f}", celsius_real(22.5)) == "22.50°C");
-    REQUIRE(std::format("{:.1f}", celsius_real(22.53)) == "22.5°C");
-
-    // Intended use: cast an exact integer reading to a real-valued type for display.
-    REQUIRE(std::format("{:.1f}", temperature_cast<celsius_real>(millicelsius(22500))) == "22.5°C");
-    REQUIRE(std::format("{:.1f}", temperature_cast<fahrenheit_real>(millicelsius(22500))) == "72.5°F");
+TEST_CASE("std::format temperature", "[thermo][string][temperature]") {
+    // Empty spec prints the exact stored count with a precision-qualified unit.
+    REQUIRE(std::format("{}", celsius(20)) == "20°C");
+    REQUIRE(std::format("{}", decicelsius(200)) == "200d°C");
+    REQUIRE(std::format("{}", millicelsius(22500)) == "22500m°C");
+    REQUIRE(std::format("{}", kelvin(273)) == "273K");
+    REQUIRE(std::format("{}", decikelvin(2955)) == "2955dK");
+    REQUIRE(std::format("{}", millikelvin(273150)) == "273150mK");
+    REQUIRE(std::format("{}", fahrenheit(72)) == "72°F");
+    REQUIRE(std::format("{}", decifahrenheit(725)) == "725d°F");
+    REQUIRE(std::format("{}", millifahrenheit(72500)) == "72500m°F");
 }
+
+TEST_CASE("std::format with spec renders in scale degrees", "[thermo][string]") {
+    // A floating-point format spec renders the value in scale degrees.
+    REQUIRE(std::format("{:.1f}", millicelsius(22534)) == "22.5°C");
+    REQUIRE(std::format("{:g}", millicelsius(22500)) == "22.5°C");
+    REQUIRE(std::format("{:.2f}", decicelsius(225)) == "22.50°C");
+    REQUIRE(std::format("{:.2f}", millikelvin(295650)) == "295.65K");
+    REQUIRE(std::format("{:.1f}", fahrenheit(72)) == "72.0°F");
+    REQUIRE(std::format("{:.1f}", decifahrenheit(725)) == "72.5°F");
+    REQUIRE(std::format("{:.2f}", millifahrenheit(72530)) == "72.53°F");
+
+    // Width and alignment pass through to the numeric part.
+    REQUIRE(std::format("{:7.1f}", millicelsius(22500)) == "   22.5°C");
+
+    // Deltas render the same way, keeping the Δ marker.
+    REQUIRE(std::format("{:.1f}", delta_millicelsius(1500)) == "1.5Δ°C");
+    REQUIRE(std::format("{:.1f}", delta_millifahrenheit(9000)) == "9.0Δ°F");
+    REQUIRE(std::format("{:.1f}", delta_fahrenheit(36)) == "36.0Δ°F");
+}
+
 #endif
 
-TEST_CASE("real-valued temperature conversion", "[thermo][real]") {
-    // count() reads directly in scale degrees; same-scale casts are exact here.
-    REQUIRE(celsius_real(millicelsius(22500)).count() == 22.5); // implicit
-    REQUIRE(temperature_cast<celsius_real>(millicelsius(22500)).count() == 22.5);
-    REQUIRE(temperature_cast<celsius_real>(decicelsius(225)).count() == 22.5);
+TEST_CASE("floating-point representation conversion", "[thermo][real]") {
+    // Inexact reps accept lossy conversions implicitly; count() reads in
+    // precision steps, so with the default precision that is scale degrees.
+    using celsius_d = temperature<celsius_scale, delta<double>>;
+    REQUIRE(celsius_d(millicelsius(22500)).count() == 22.5); // implicit
+    REQUIRE(temperature_cast<celsius_d>(millicelsius(22500)).count() == 22.5);
+    REQUIRE(temperature_cast<celsius_d>(decicelsius(225)).count() == 22.5);
 }
 
 // =============================================================================
