@@ -585,6 +585,17 @@ struct fahrenheit_scale {
     using degree = std::ratio<5, 9>;
     static constexpr const char* suffix = "°F";
 };
+
+/**
+ * @brief True when a scale's zero point is not absolute zero.
+ *
+ * Negating an absolute temperature only makes sense on a "relative" scale
+ * (e.g. Celsius, Fahrenheit), where the zero point sits above absolute zero.
+ * On an absolute scale (Kelvin, offset == 0) a negated temperature always
+ * falls below absolute zero, so unary minus is disabled there.
+ */
+template<typename Scale>
+inline constexpr bool _is_relative_scale = std::ratio_not_equal_v<typename Scale::offset, std::ratio<0>>;
 /** @endcond */
 
 template<typename Scale, typename Delta = delta<int64_t>>
@@ -728,6 +739,19 @@ public:
     }
 
     constexpr temperature operator--(int) { return temperature(_d--); }
+
+    /**
+     * @brief Negates the temperature (e.g. to write @c -123_dc as @c -(123_dc)).
+     *
+     * Only available on relative scales such as Celsius and Fahrenheit; on an
+     * absolute scale (Kelvin) negation would fall below absolute zero and is a
+     * compile error. See @ref _is_relative_scale.
+     */
+    constexpr temperature operator-() const
+        requires _is_relative_scale<Scale>
+    {
+        return temperature(-_d);
+    }
 
     template<typename Rep2, typename Precision2>
     constexpr temperature& operator+=(const delta<Rep2, Precision2>& d) {

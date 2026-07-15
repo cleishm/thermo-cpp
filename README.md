@@ -143,11 +143,22 @@ using namespace thermo_literals;
 293_k     // kelvin(293)
 68_f      // fahrenheit(68)
 
+// Negative absolute temperatures (unary minus on the literal)
+-123_dc   // decicelsius(-123) = -12.3°C
+-40_f     // fahrenheit(-40)
+// -25_k  // ill-formed: negating a Kelvin temperature falls below absolute zero
+
 // Temperature deltas
 5_Δc      // delta_celsius(5)
 5000_Δmc  // delta_millicelsius(5000)
 9_Δf      // delta_fahrenheit(9) = delta_celsius(5)
 ```
+
+Unary minus is available on relative scales (Celsius, Fahrenheit) so that
+negative literals like `-123_dc` work — the sign is applied to the value the
+literal produces, i.e. `-(123_dc)`. It is deliberately *not* available on the
+absolute Kelvin scale, where a negated temperature would fall below absolute
+zero; `-25_k` is a compile error. Deltas are negatable on every scale.
 
 ## Conversion Rules
 

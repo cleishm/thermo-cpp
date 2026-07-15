@@ -334,6 +334,36 @@ TEST_CASE("delta literals", "[thermo][literals]") {
 }
 
 // =============================================================================
+// Negation (enables negative literals, e.g. -123_dc == -(123_dc))
+// =============================================================================
+
+template<typename T>
+concept has_unary_minus = requires(T t) { -t; };
+
+// Available on relative scales (zero above absolute zero)...
+static_assert(has_unary_minus<celsius>);
+static_assert(has_unary_minus<decicelsius>);
+static_assert(has_unary_minus<fahrenheit>);
+// ...but not on the absolute scale, where a negated value is below absolute zero.
+static_assert(!has_unary_minus<kelvin>);
+static_assert(!has_unary_minus<decikelvin>);
+static_assert(!has_unary_minus<millikelvin>);
+
+// Compile-time tests
+static_assert((-123_dc).count() == -123);
+static_assert((-40_f).count() == -40);
+static_assert((-20_c).count() == -20);
+static_assert(-(-5_c) == 5_c);
+
+// Runtime tests
+TEST_CASE("temperature negation", "[thermo][temperature]") {
+    REQUIRE((-123_dc).count() == -123);
+    REQUIRE((-40_f).count() == -40);
+    REQUIRE((-20_c).count() == -20);
+    REQUIRE((-(-5_c)).count() == 5);
+}
+
+// =============================================================================
 // String formatting
 // =============================================================================
 
