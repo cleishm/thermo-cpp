@@ -8,6 +8,7 @@
 #include <compare>
 #include <concepts>
 #include <cstdint>
+#include <cstdlib>
 #include <limits>
 #include <ratio>
 #include <string>
@@ -533,6 +534,25 @@ constexpr OutputIt _format_append(OutputIt out, const char* s) {
     }
     return out;
 }
+
+#if CONFIG_THERMO_STD_FORMAT
+// Reports an unusable format spec from a formatter's parse().
+//
+// std::format constant-evaluates parse() to check the format string, so
+// throwing there makes a bad spec a compile error rather than a runtime fault.
+// Where exceptions are unavailable, calling a non-constexpr function fails that
+// same constant evaluation and so reports the error at compile time too; a
+// runtime parse (std::vformat with a runtime format string) has no way to
+// report it and terminates.
+[[noreturn]] inline void _format_error(const char* what) {
+#if defined(__cpp_exceptions) && __cpp_exceptions
+    throw std::format_error(what);
+#else
+    (void)what;
+    std::abort();
+#endif
+}
+#endif
 /** @endcond */
 
 /**
@@ -950,8 +970,8 @@ public:
     constexpr auto parse(format_parse_context& ctx) {
         auto it = ctx.begin();
         if (it == ctx.end() || *it == '}') {
-            if (_prefix == nullptr) {
-                throw format_error("thermo: precision has no SI prefix; use an explicit format spec");
+            if constexpr (_prefix == nullptr) {
+                thermo::_format_error("thermo: precision has no SI prefix; use an explicit format spec");
             }
             return it;
         }
@@ -990,8 +1010,8 @@ public:
     constexpr auto parse(format_parse_context& ctx) {
         auto it = ctx.begin();
         if (it == ctx.end() || *it == '}') {
-            if (_prefix == nullptr) {
-                throw format_error("thermo: precision has no SI prefix; use an explicit format spec");
+            if constexpr (_prefix == nullptr) {
+                thermo::_format_error("thermo: precision has no SI prefix; use an explicit format spec");
             }
             return it;
         }
