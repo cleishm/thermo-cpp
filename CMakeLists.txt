@@ -30,7 +30,6 @@ target_compile_options(thermo INTERFACE
 
 target_include_directories(thermo INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
 )
 
 target_compile_features(thermo INTERFACE cxx_std_23)
