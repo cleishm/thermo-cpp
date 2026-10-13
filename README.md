@@ -22,6 +22,11 @@ A type-safe, header-only C++23 library for temperature handling, modeled after `
   - `/std:c++latest` - Enable C++23 features
   - `/Zc:__cplusplus` - Set `__cplusplus` macro correctly
   - `/utf-8` - Treat source files as UTF-8 (for degree symbols)
+- **GCC 13:** GCC before 14 cannot lex non-ASCII user-defined literal suffixes,
+  so the `_Δ…` delta literals (`5_Δc`, `5000_Δmc`, …) are unavailable there
+  (`THERMO_HAS_UTF8_LITERALS` is `0`). Every `_Δ…` literal has an ASCII
+  alternative spelled `_delta_…` (`5_delta_c`, `5000_delta_mc`, …), which is
+  always available.
 
 ## Installation
 
@@ -32,7 +37,7 @@ include(FetchContent)
 FetchContent_Declare(
     thermo
     GIT_REPOSITORY https://github.com/cleishm/thermo-cpp.git
-    GIT_TAG v1.0.0
+    GIT_TAG v2.2.0
 )
 FetchContent_MakeAvailable(thermo)
 
@@ -44,6 +49,10 @@ target_link_libraries(your_target PRIVATE thermo::thermo)
 ```bash
 vcpkg install cleishm-thermo-cpp
 ```
+
+The `cleishm-thermo-cpp` port lives in the upstream
+[microsoft/vcpkg](https://github.com/microsoft/vcpkg) registry and is
+community-maintained, so it may lag the latest release.
 
 ```cmake
 find_package(thermo CONFIG REQUIRED)
@@ -92,11 +101,11 @@ if (millicelsius{20000} == celsius{20}) {
 // String conversion
 std::string s = to_string(room_temp);  // "20°C"
 
-// Formatting: a floating-point format spec renders in scale degrees,
-// while the default renders the exact stored value.
-millicelsius reading{22500};
-std::string disp = std::format("{:.1f}", reading);  // "22.5°C"
-std::string raw  = std::format("{}", reading);      // "22500m°C" (exact stored value)
+// Formatting: always in the type's own unit, unless a marker opts out.
+millicelsius reading{22534};
+std::string raw  = std::format("{}", reading);      // "22534m°C" (exact stored value)
+std::string spec = std::format("{:.1f}", reading);  // "22534.0m°C" (same unit)
+std::string disp = std::format("{:b.1f}", reading); // "22.5°C" (base unit)
 ```
 
 ## Temperature Types
@@ -115,10 +124,7 @@ std::string raw  = std::format("{}", reading);      // "22500m°C" (exact stored
 | `decifahrenheit` | Fahrenheit | 0.1°F |
 | `millifahrenheit` | Fahrenheit | 0.001°F |
 
-With `std::format`, `{}` renders a temperature as its exact stored value with a
-precision-qualified unit (e.g. `millicelsius{22500}` → `22500m°C`), while any
-floating-point format spec renders the value in scale degrees — no cast needed
-(`{:.1f}` of `millicelsius{22534}` → `22.5°C`).
+See Formatting below for how these render as strings.
 
 ### Temperature Deltas
 
@@ -152,13 +158,72 @@ using namespace thermo_literals;
 5_Δc      // delta_celsius(5)
 5000_Δmc  // delta_millicelsius(5000)
 9_Δf      // delta_fahrenheit(9) = delta_celsius(5)
+
+// ASCII spellings of the delta literals (always available, including on GCC 13)
+5_delta_c      // delta_celsius(5), same as 5_Δc
+5000_delta_mc  // delta_millicelsius(5000), same as 5000_Δmc
+5_delta_k      // delta_kelvin(5), same as 5_Δk
+5000_delta_mk  // delta_millikelvin(5000), same as 5000_Δmk
+9_delta_f      // delta_fahrenheit(9), same as 9_Δf
+9000_delta_mf  // delta_millifahrenheit(9000), same as 9000_Δmf
 ```
+
+The `_Δ…` literals require `THERMO_HAS_UTF8_LITERALS` (GCC 14+, Clang, MSVC);
+the `_delta_…` forms are their ASCII alternatives and are always defined.
 
 Unary minus is available on relative scales (Celsius, Fahrenheit) so that
 negative literals like `-123_dc` work — the sign is applied to the value the
 literal produces, i.e. `-(123_dc)`. It is deliberately *not* available on the
 absolute Kelvin scale, where a negated temperature would fall below absolute
 zero; `-25_k` is a compile error. Deltas are negatable on every scale.
+
+## Formatting
+
+`to_string()` and `std::format` render a temperature or delta in **its own
+unit** — the scale's degree with the precision's SI prefix, and a `Δ` marker
+for deltas. `{}` prints the exact stored count; any other format spec changes
+only how the number is rendered (as a `double`), never the unit:
+
+```cpp
+std::format("{}", millicelsius(22534));          // "22534m°C"
+std::format("{:.1f}", millicelsius(22534));      // "22534.0m°C"
+std::format("{:>9.1f}", decikelvin(2955));       // "   2955.0dK"
+std::format("{:.1f}", delta_millicelsius(1500)); // "1500.0Δm°C"
+to_string(millicelsius(22534));                  // "22534m°C"
+```
+
+A single leading **marker** letter in the spec opts into another unit; the rest
+of the spec is a normal floating-point format spec:
+
+| Marker | Unit | Example |
+|--------|------|---------|
+| `b` | Base unit: the unprefixed degree of the same scale (°C, K or °F; never converted to another scale) | `{:b.1f}` of `millicelsius(22534)` → `22.5°C` |
+| `s` | Scaled: temperatures are not rescaled, so this is the type's own unit | `{:s.1f}` of `millicelsius(22534)` → `22534.0m°C` |
+
+With nothing after the marker (`{:b}`, `{:s}`), the value is rendered in the
+shortest fixed notation that round-trips — never scientific notation. The same
+forms are available without `<format>` through tag arguments to `to_string()`:
+
+```cpp
+std::format("{:b}", millicelsius(22534));             // "22.534°C"
+std::format("{:b.1f}", delta_millifahrenheit(9000));  // "9.0Δ°F"
+std::format("{:b*>8.2f}", millicelsius(22534));       // "***22.53°C"
+to_string(millicelsius(22534), base_unit);            // "22.534°C"
+to_string(millicelsius(22534), scaled);               // "22534m°C"
+```
+
+Because a spec starting with `b` or `s` is always a marker, those letters cannot
+be used as the fill character at the start of a spec (`{:b>8}` is the `b` marker
+followed by `>8`).
+
+Floating-point representations (e.g. `temperature<celsius_scale, delta<double>>`)
+render with no spec in the same shortest round-trip fixed notation, so
+`to_string` and `{}` agree: `22.5°C`, `1000000°C`.
+
+Temperature precisions without an SI prefix (e.g.
+`temperature<celsius_scale, delta<int64_t, std::centi>>`) have no unit label of
+their own: `{}` is a format error, and any other spec or marker renders
+the value in the base unit.
 
 ## Conversion Rules
 

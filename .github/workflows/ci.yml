@@ -13,6 +13,9 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            compiler: g++-13
+            cxx: g++-13
+          - os: ubuntu-latest
             compiler: g++-14
             cxx: g++-14
           - os: ubuntu-latest

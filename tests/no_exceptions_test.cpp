@@ -49,14 +49,22 @@ int main() {
     check(std::format("{}", delta_celsius(20)), "20Δ°C", "{} delta_celsius");
     check(std::format("{}", delta_millicelsius(1500)), "1500Δm°C", "{} delta_millicelsius");
 
-    // Formatting with an explicit spec.
-    check(std::format("{:.1f}", decicelsius(225)), "22.5°C", "{:.1f} decicelsius");
-    check(std::format("{:.1f}", millicelsius(22534)), "22.5°C", "{:.1f} millicelsius");
-    check(std::format("{:.1f}", delta_millicelsius(1500)), "1.5Δ°C", "{:.1f} delta_millicelsius");
+    // Formatting with an explicit spec (in the type's own unit).
+    check(std::format("{:.1f}", decicelsius(225)), "225.0d°C", "{:.1f} decicelsius");
+    check(std::format("{:.1f}", millicelsius(22534)), "22534.0m°C", "{:.1f} millicelsius");
+    check(std::format("{:.1f}", delta_millicelsius(1500)), "1500.0Δm°C", "{:.1f} delta_millicelsius");
 
-    // A precision with no SI prefix is still usable with an explicit spec.
+    // Unit markers.
+    check(std::format("{:b}", millicelsius(22534)), "22.534°C", "{:b} millicelsius");
+    check(std::format("{:b.1f}", millicelsius(22534)), "22.5°C", "{:b.1f} millicelsius");
+    check(std::format("{:s}", millicelsius(22534)), "22534m°C", "{:s} millicelsius");
+    check(std::format("{:b.1f}", delta_millicelsius(1500)), "1.5Δ°C", "{:b.1f} delta_millicelsius");
+
+    // A precision with no SI prefix is still usable with an explicit spec or
+    // a marker, rendering in the base unit.
     using centicelsius = temperature<celsius_scale, delta<int64_t, std::centi>>;
     check(std::format("{:.2f}", centicelsius(2250)), "22.50°C", "{:.2f} centicelsius");
+    check(std::format("{:s}", centicelsius(2250)), "22.5°C", "{:s} centicelsius");
 
     if (failures != 0) {
         std::printf("%d check(s) failed\n", failures);

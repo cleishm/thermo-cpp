@@ -1,10 +1,11 @@
 #pragma once
 
 /**
- * @file thermo
+ * @file thermo.hpp
  * @brief Temperature types and arithmetic, modeled after std::chrono.
  */
 
+#include <charconv>
 #include <compare>
 #include <concepts>
 #include <cstdint>
@@ -12,6 +13,7 @@
 #include <limits>
 #include <ratio>
 #include <string>
+#include <system_error>
 #include <version> // pulls in __cpp_lib_format so the detection below works in non-IDF builds
 #ifndef CONFIG_THERMO_STD_FORMAT
 #if __has_include(<format>) && defined(__cpp_lib_format)
@@ -26,7 +28,23 @@
 #endif
 #include <assert.h>
 
-static_assert(__cplusplus >= 202302L, "thermo requires C++23 or later");
+// GCC 13 reports 202100L for -std=c++23, so accept that as C++23.
+static_assert(__cplusplus >= 202100L, "thermo requires C++23 or later");
+
+/**
+ * @brief 1 if the compiler accepts non-ASCII literal suffixes (e.g. `_Δc`).
+ *
+ * GCC before 14 (including the ESP-IDF toolchains before GCC 14) cannot lex
+ * extended characters in user-defined literal suffixes, so the `_Δ...` delta
+ * literals are omitted there. Every `_Δ...` literal has an ASCII alternative
+ * spelled `_delta_...` (`_delta_c`, `_delta_mc`, `_delta_k`, `_delta_mk`,
+ * `_delta_f`, `_delta_mf`), which is always available.
+ */
+#if !defined(__GNUC__) || defined(__clang__) || __GNUC__ >= 14
+#define THERMO_HAS_UTF8_LITERALS 1
+#else
+#define THERMO_HAS_UTF8_LITERALS 0
+#endif
 
 /**
  * @brief Temperature types and utilities.
@@ -35,6 +53,28 @@ static_assert(__cplusplus >= 202302L, "thermo requires C++23 or later");
  * multiple scales (Celsius, Kelvin, Fahrenheit) and precisions, following
  * the design of std::chrono. It distinguishes between absolute temperatures
  * and temperature differences (deltas).
+ *
+ * ## Formatting
+ *
+ * to_string() and std::format show a temperature or delta in its own unit by
+ * default, whatever the format spec: `{}` prints the exact count and `{:.1f}`
+ * the count as a double, each followed by the precision-qualified unit. A
+ * single leading marker letter in the spec, or a tag argument to to_string(),
+ * opts into a different unit:
+ *
+ * @code
+ * std::format("{}", millicelsius(22534));        // "22534m°C"  own unit
+ * std::format("{:.1f}", millicelsius(22534));    // "22534.0m°C"
+ * std::format("{:b}", millicelsius(22534));      // "22.534°C"  base unit
+ * std::format("{:b.1f}", millicelsius(22534));   // "22.5°C"
+ * std::format("{:b.1f}", delta_millicelsius(1500)); // "1.5Δ°C"
+ * to_string(millicelsius(22534), base_unit);     // "22.534°C"
+ * @endcode
+ *
+ * The base unit is the unprefixed degree of the same scale (m°C -> °C,
+ * mK -> K, m°F -> °F); temperatures are never converted to another scale.
+ * The scaled form (`s`, see scaled) keeps the type's own unit: temperatures
+ * are not rescaled to suit their magnitude.
  */
 namespace thermo {
 
@@ -535,6 +575,104 @@ constexpr OutputIt _format_append(OutputIt out, const char* s) {
     return out;
 }
 
+// The shortest fixed-notation representation of v that round-trips: never
+// scientific notation, and no trailing zeros (22.5 -> "22.5", 1e6 ->
+// "1000000"). Used wherever a floating-point value is rendered without a
+// format spec, so to_string and std::format agree.
+template<std::floating_point T>
+std::string _fixed_string(T v) {
+    std::string s(32, '\0');
+    for (;;) {
+        const auto result = std::to_chars(s.data(), s.data() + s.size(), v, std::chars_format::fixed);
+        if (result.ec == std::errc()) {
+            s.resize(static_cast<std::size_t>(result.ptr - s.data()));
+            return s;
+        }
+        s.resize(s.size() * 2);
+    }
+}
+
+// A count rendered without a format spec: integers exactly, floating-point
+// counts in shortest round-trip fixed notation.
+template<typename Rep>
+std::string _count_string(const Rep& r) {
+    if constexpr (std::floating_point<Rep>) {
+        return _fixed_string(r);
+    } else {
+        return std::to_string(r);
+    }
+}
+
+// How a delta or temperature type is displayed: the delta marker ("Δ" or
+// ""), the unit suffix of its scale, the precision in degrees of that unit
+// (dpc), and the SI prefix for that precision (nullptr when it has none).
+template<typename T>
+struct _display_traits;
+
+template<typename Rep, typename Precision>
+struct _display_traits<delta<Rep, Precision>> {
+private:
+    using _precision = typename delta<Rep, Precision>::precision;
+    using _unit = _delta_unit<_precision>; // hard error if unmapped
+
+public:
+    using dpc = typename std::ratio_divide<_precision, typename _unit::degree>::type;
+    static constexpr const char* mark = "Δ";
+    static constexpr const char* unit = _unit::suffix;
+    static constexpr const char* prefix = _si_prefix_v<dpc>;
+};
+
+// A value and SI prefix to display, followed by the type's mark and unit.
+struct _display {
+    double value;
+    const char* prefix;
+};
+
+// The count in unprefixed degrees of the type's own scale, as a double.
+template<typename Traits, typename Rep>
+constexpr double _base_value(const Rep& count) {
+    using dpc = typename Traits::dpc;
+    double v = static_cast<double>(count);
+    if constexpr (dpc::num != 1) {
+        v *= static_cast<double>(dpc::num);
+    }
+    if constexpr (dpc::den != 1) {
+        v /= static_cast<double>(dpc::den);
+    }
+    return v;
+}
+
+// The base-unit form: the value in unprefixed degrees of the same scale.
+template<typename Traits, typename Rep>
+constexpr _display _base_unit_display(const Rep& count) {
+    return {_base_value<Traits>(count), ""};
+}
+
+// The scaled form. Temperatures are not rescaled, so this is the type's own
+// unit: the count (as a double) with the precision's prefix. A precision with
+// no SI prefix has no own unit label and is shown in unprefixed degrees.
+template<typename Traits, typename Rep>
+constexpr _display _scaled_display(const Rep& count) {
+    if constexpr (Traits::prefix != nullptr) {
+        return {static_cast<double>(count), Traits::prefix};
+    } else {
+        return _base_unit_display<Traits>(count);
+    }
+}
+
+// Renders a display value with no format spec, followed by its unit.
+template<typename Traits>
+std::string _display_string(const _display& d) {
+    return _fixed_string(d.value) + Traits::mark + d.prefix + Traits::unit;
+}
+
+// Renders an exact count with the type's own precision-qualified unit.
+template<typename Traits, typename Rep>
+std::string _own_unit_string(const Rep& count) {
+    static_assert(Traits::prefix != nullptr, "thermo: precision has no SI prefix");
+    return _count_string(count) + Traits::mark + Traits::prefix + Traits::unit;
+}
+
 #if CONFIG_THERMO_STD_FORMAT
 // Reports an unusable format spec from a formatter's parse().
 //
@@ -552,20 +690,143 @@ constexpr OutputIt _format_append(OutputIt out, const char* s) {
     std::abort();
 #endif
 }
+
+// The std::formatter implementation shared by deltas and temperatures; see
+// the formatter specializations for the spec grammar.
+template<typename Traits>
+struct _formatter {
+private:
+    enum class _unit_form { own, base, scaled };
+
+    std::formatter<double> _num;
+    bool _has_spec = false;
+    _unit_form _form = _unit_form::own;
+
+public:
+    constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin();
+        if (it != ctx.end() && (*it == 'b' || *it == 's')) {
+            _form = *it == 'b' ? _unit_form::base : _unit_form::scaled;
+            ctx.advance_to(++it);
+        }
+        if (it == ctx.end() || *it == '}') {
+            if constexpr (Traits::prefix == nullptr) {
+                if (_form == _unit_form::own) {
+                    _format_error("thermo: precision has no SI prefix; use an explicit format spec");
+                }
+            }
+            return it;
+        }
+        _has_spec = true;
+        return _num.parse(ctx);
+    }
+
+    template<typename Rep, typename FormatContext>
+    auto format_count(const Rep& count, FormatContext& ctx) const {
+        if constexpr (Traits::prefix != nullptr) { // otherwise rejected by parse()
+            if (_form == _unit_form::own && !_has_spec) {
+                auto out = ctx.out();
+                if constexpr (std::floating_point<Rep>) {
+                    out = _format_append(out, _fixed_string(count).c_str());
+                } else {
+                    out = std::format_to(out, "{}", count);
+                }
+                out = _format_append(out, Traits::mark);
+                out = _format_append(out, Traits::prefix);
+                return _format_append(out, Traits::unit);
+            }
+        }
+        // With a spec the own unit is the scaled form; see _scaled_display.
+        const _display d =
+            _form == _unit_form::base ? _base_unit_display<Traits>(count) : _scaled_display<Traits>(count);
+        auto out = _has_spec ? _num.format(d.value, ctx) : _format_append(ctx.out(), _fixed_string(d.value).c_str());
+        out = _format_append(out, Traits::mark);
+        out = _format_append(out, d.prefix);
+        return _format_append(out, Traits::unit);
+    }
+};
 #endif
 /** @endcond */
 
 /**
+ * @brief Tag type selecting the base-unit form, see base_unit.
+ */
+struct base_unit_t {
+    explicit base_unit_t() = default;
+};
+
+/**
+ * @brief Selects the base-unit form in to_string().
+ *
+ * The value is shown in the unprefixed degree of its own scale (°C, K or °F,
+ * with deltas keeping their Δ marker): the count times the precision, rendered
+ * in the shortest fixed notation that round-trips (never scientific), exactly
+ * as by the `b` format marker. Temperatures are never converted to another
+ * scale.
+ *
+ * @code
+ * to_string(millicelsius(22534), base_unit);       // "22.534°C"
+ * to_string(decikelvin(2955), base_unit);          // "295.5K"
+ * to_string(millifahrenheit(-40250), base_unit);   // "-40.25°F"
+ * to_string(delta_millicelsius(1500), base_unit);  // "1.5Δ°C"
+ * @endcode
+ */
+inline constexpr base_unit_t base_unit{};
+
+/**
+ * @brief Tag type selecting the scaled form, see scaled.
+ */
+struct scaled_t {
+    explicit scaled_t() = default;
+};
+
+/**
+ * @brief Selects the scaled form in to_string().
+ *
+ * Provided for parity with the sibling unit libraries. Temperatures are not
+ * rescaled to suit their magnitude, so the scaled form is the type's own unit:
+ * the count (as a double) in the shortest fixed notation that round-trips,
+ * with the precision-qualified unit, exactly as by the `s` format marker. A
+ * precision with no SI prefix (and so no unit label of its own) is shown in
+ * the base unit.
+ *
+ * @code
+ * to_string(millicelsius(22534), scaled);       // "22534m°C"
+ * to_string(delta_millicelsius(1500), scaled);  // "1500Δm°C"
+ * @endcode
+ */
+inline constexpr scaled_t scaled{};
+
+/**
  * @brief Renders a delta as its exact count with a precision-qualified unit,
  * e.g. `to_string(delta_millicelsius(1500)) == "1500Δm°C"`.
+ *
+ * Floating-point counts are rendered in the shortest fixed notation that
+ * round-trips, as by `{}` in std::format.
  */
 template<typename Rep, typename Precision>
-    requires(!treat_as_inexact_v<Rep>)
 std::string to_string(const delta<Rep, Precision>& d) {
-    using unit = _delta_unit<typename delta<Rep, Precision>::precision>;
-    using dpc = std::ratio_divide<typename delta<Rep, Precision>::precision, typename unit::degree>;
-    static_assert(_si_prefix_v<dpc> != nullptr, "thermo: precision has no SI prefix");
-    return std::to_string(d.count()) + "Δ" + _si_prefix_v<dpc> + unit::suffix;
+    return _own_unit_string<_display_traits<delta<Rep, Precision>>>(d.count());
+}
+
+/**
+ * @brief Renders a delta in its base unit (Δ°C or Δ°F), see base_unit,
+ * e.g. `to_string(delta_millicelsius(1500), base_unit) == "1.5Δ°C"`.
+ */
+template<typename Rep, typename Precision>
+std::string to_string(const delta<Rep, Precision>& d, base_unit_t) {
+    using traits = _display_traits<delta<Rep, Precision>>;
+    return _display_string<traits>(_base_unit_display<traits>(d.count()));
+}
+
+/**
+ * @brief Renders a delta in its scaled form (its own unit), see scaled,
+ * e.g. `to_string(delta_millicelsius(1500), scaled) == "1500Δm°C"`.
+ */
+template<typename Rep, typename Precision>
+std::string to_string(const delta<Rep, Precision>& d, scaled_t) {
+    using traits = _display_traits<delta<Rep, Precision>>;
+    return _display_string<traits>(_scaled_display<traits>(d.count()));
 }
 
 // ============================================================================
@@ -765,7 +1026,7 @@ public:
      *
      * Only available on relative scales such as Celsius and Fahrenheit; on an
      * absolute scale (Kelvin) negation would fall below absolute zero and is a
-     * compile error. See @ref _is_relative_scale.
+     * compile error.
      */
     constexpr temperature operator-() const
         requires _is_relative_scale<Scale>
@@ -920,16 +1181,47 @@ using decifahrenheit = temperature<fahrenheit_scale, delta<int64_t, std::ratio<5
 /** @brief Fahrenheit with 0.001 degree precision. */
 using millifahrenheit = temperature<fahrenheit_scale, delta<int64_t, std::ratio<5, 9000>>>;
 
+/** @cond INTERNAL */
+template<typename Scale, typename Rep, typename Precision>
+struct _display_traits<temperature<Scale, delta<Rep, Precision>>> {
+    using dpc = typename std::ratio_divide<typename delta<Rep, Precision>::precision, typename Scale::degree>::type;
+    static constexpr const char* mark = "";
+    static constexpr const char* unit = Scale::suffix;
+    static constexpr const char* prefix = _si_prefix_v<dpc>;
+};
+/** @endcond */
+
 /**
  * @brief Renders a temperature as its exact count with a precision-qualified
  * unit, e.g. `to_string(millicelsius(22500)) == "22500m°C"`.
+ *
+ * Floating-point counts are rendered in the shortest fixed notation that
+ * round-trips, as by `{}` in std::format.
  */
 template<typename Scale, typename Rep, typename Precision>
-    requires(!treat_as_inexact_v<Rep>)
 std::string to_string(const temperature<Scale, delta<Rep, Precision>>& t) {
-    using dpc = std::ratio_divide<typename delta<Rep, Precision>::precision, typename Scale::degree>;
-    static_assert(_si_prefix_v<dpc> != nullptr, "thermo: precision has no SI prefix");
-    return std::to_string(t.count()) + _si_prefix_v<dpc> + Scale::suffix;
+    return _own_unit_string<_display_traits<temperature<Scale, delta<Rep, Precision>>>>(t.count());
+}
+
+/**
+ * @brief Renders a temperature in the unprefixed degree of its own scale
+ * (°C, K or °F), see base_unit,
+ * e.g. `to_string(millicelsius(22534), base_unit) == "22.534°C"`.
+ */
+template<typename Scale, typename Rep, typename Precision>
+std::string to_string(const temperature<Scale, delta<Rep, Precision>>& t, base_unit_t) {
+    using traits = _display_traits<temperature<Scale, delta<Rep, Precision>>>;
+    return _display_string<traits>(_base_unit_display<traits>(t.count()));
+}
+
+/**
+ * @brief Renders a temperature in its scaled form (its own unit), see scaled,
+ * e.g. `to_string(millicelsius(22534), scaled) == "22534m°C"`.
+ */
+template<typename Scale, typename Rep, typename Precision>
+std::string to_string(const temperature<Scale, delta<Rep, Precision>>& t, scaled_t) {
+    using traits = _display_traits<temperature<Scale, delta<Rep, Precision>>>;
+    return _display_string<traits>(_scaled_display<traits>(t.count()));
 }
 
 } // namespace thermo
@@ -954,83 +1246,51 @@ struct common_type<thermo::temperature<Scale, Delta1>, thermo::temperature<Scale
 
 #if CONFIG_THERMO_STD_FORMAT
 // "{}" prints the exact stored count with a precision-qualified unit
-// (millicelsius(22500) -> "22500m°C"). A non-empty spec is applied to the
-// value in scale degrees (as double), honoring the standard floating-point
-// format spec: std::format("{:.1f}", millicelsius(22534)) == "22.5°C".
+// (millicelsius(22500) -> "22500m°C"; floating-point counts in the shortest
+// fixed notation that round-trips, as to_string does: never scientific). A
+// non-empty spec controls only how the number is rendered (as a double),
+// never the unit, so both forms use the same unit:
+// std::format("{:.1f}", millicelsius(22534)) == "22534.0m°C".
+//
+// The unit changes only when the spec opts in with a single leading marker
+// letter; the rest of the spec is then the std::formatter<double> spec:
+// - 'b' (base unit, see thermo::base_unit) shows the value in the unprefixed
+//   degree of the same scale (°C, K or °F; never another scale):
+//   std::format("{:b.1f}", millicelsius(22534)) == "22.5°C".
+// - 's' (scaled, see thermo::scaled) keeps the type's own unit, since
+//   temperatures are not rescaled: std::format("{:s.1f}", millicelsius(22534))
+//   == "22534.0m°C".
+// With 'b' or 's' and nothing after the marker, the value is rendered in the
+// shortest fixed notation that round-trips (never scientific), exactly as by
+// to_string(t, thermo::base_unit) or to_string(t, thermo::scaled):
+// std::format("{:b}", millicelsius(22534)) == "22.534°C".
+//
+// A spec starting with 'b' or 's' is always a marker, so these letters cannot
+// be the fill character of a spec that starts with a fill ("{:b>10.1f}" is the
+// marker followed by ">10.1f").
+//
+// A precision with no SI prefix has no unit label of its own: "{}" is a
+// format error, and any other spec renders in the base unit.
 template<typename Scale, typename Rep, typename Precision>
-struct formatter<thermo::temperature<Scale, thermo::delta<Rep, Precision>>> {
-private:
-    using _delta_t = thermo::delta<Rep, Precision>;
-    using _dpc = typename ratio_divide<typename _delta_t::precision, typename Scale::degree>::type;
-    static constexpr const char* _prefix = thermo::_si_prefix_v<_dpc>;
-    std::formatter<double> _num;
-    bool _has_spec = false;
-
-public:
-    constexpr auto parse(format_parse_context& ctx) {
-        auto it = ctx.begin();
-        if (it == ctx.end() || *it == '}') {
-            if constexpr (_prefix == nullptr) {
-                thermo::_format_error("thermo: precision has no SI prefix; use an explicit format spec");
-            }
-            return it;
-        }
-        _has_spec = true;
-        return _num.parse(ctx);
-    }
-
+struct formatter<thermo::temperature<Scale, thermo::delta<Rep, Precision>>>
+    : thermo::_formatter<thermo::_display_traits<thermo::temperature<Scale, thermo::delta<Rep, Precision>>>> {
     template<typename FormatContext>
-    auto format(const thermo::temperature<Scale, _delta_t>& t, FormatContext& ctx) const {
-        if (_has_spec) {
-            double degrees = static_cast<double>(t.count()) * _dpc::num / _dpc::den;
-            auto out = _num.format(degrees, ctx);
-            return thermo::_format_append(out, Scale::suffix);
-        }
-        auto out = std::format_to(ctx.out(), "{}", t.count());
-        out = thermo::_format_append(out, _prefix);
-        return thermo::_format_append(out, Scale::suffix);
+    auto format(const thermo::temperature<Scale, thermo::delta<Rep, Precision>>& t, FormatContext& ctx) const {
+        return this->format_count(t.count(), ctx);
     }
 };
 
-// "{}" prints the exact stored count with a precision-qualified unit
-// (delta_millicelsius(1500) -> "1500Δm°C"). A non-empty spec is applied to
-// the value in scale degrees (as double):
-// std::format("{:.1f}", delta_millicelsius(1500)) == "1.5Δ°C".
+// As for temperatures, with the Δ marker before the unit:
+// std::format("{}", delta_millicelsius(1500)) == "1500Δm°C",
+// std::format("{:.1f}", delta_millicelsius(1500)) == "1500.0Δm°C" and
+// std::format("{:b.1f}", delta_millicelsius(1500)) == "1.5Δ°C". Celsius and
+// kelvin deltas share types and display as Δ°C.
 template<typename Rep, typename Precision>
-struct formatter<thermo::delta<Rep, Precision>> {
-private:
-    using _delta_t = thermo::delta<Rep, Precision>;
-    using _unit = thermo::_delta_unit<typename _delta_t::precision>; // hard error if unmapped
-    using _dpc = typename ratio_divide<typename _delta_t::precision, typename _unit::degree>::type;
-    static constexpr const char* _prefix = thermo::_si_prefix_v<_dpc>;
-    std::formatter<double> _num;
-    bool _has_spec = false;
-
-public:
-    constexpr auto parse(format_parse_context& ctx) {
-        auto it = ctx.begin();
-        if (it == ctx.end() || *it == '}') {
-            if constexpr (_prefix == nullptr) {
-                thermo::_format_error("thermo: precision has no SI prefix; use an explicit format spec");
-            }
-            return it;
-        }
-        _has_spec = true;
-        return _num.parse(ctx);
-    }
-
+struct formatter<thermo::delta<Rep, Precision>>
+    : thermo::_formatter<thermo::_display_traits<thermo::delta<Rep, Precision>>> {
     template<typename FormatContext>
-    auto format(const _delta_t& d, FormatContext& ctx) const {
-        if (_has_spec) {
-            double degrees = static_cast<double>(d.count()) * _dpc::num / _dpc::den;
-            auto out = _num.format(degrees, ctx);
-            out = thermo::_format_append(out, "Δ");
-            return thermo::_format_append(out, _unit::suffix);
-        }
-        auto out = std::format_to(ctx.out(), "{}", d.count());
-        out = thermo::_format_append(out, "Δ");
-        out = thermo::_format_append(out, _prefix);
-        return thermo::_format_append(out, _unit::suffix);
+    auto format(const thermo::delta<Rep, Precision>& d, FormatContext& ctx) const {
+        return this->format_count(d.count(), ctx);
     }
 };
 #endif
@@ -1137,40 +1397,78 @@ constexpr thermo::millifahrenheit operator""_mf() {
     return thermo::millifahrenheit(detail::check_overflow<thermo::delta_millifahrenheit, Digits...>());
 }
 
-/** @brief Literal for delta_celsius (e.g., 5_Δc). */
+/** @brief Literal for delta_celsius (e.g., 5_delta_c); ASCII spelling of `_Δc`. */
+template<char... Digits>
+constexpr thermo::delta_celsius operator""_delta_c() {
+    return detail::check_overflow<thermo::delta_celsius, Digits...>();
+}
+
+/** @brief Literal for delta_millicelsius (e.g., 5000_delta_mc); ASCII spelling of `_Δmc`. */
+template<char... Digits>
+constexpr thermo::delta_millicelsius operator""_delta_mc() {
+    return detail::check_overflow<thermo::delta_millicelsius, Digits...>();
+}
+
+/** @brief Literal for delta_kelvin (e.g., 5_delta_k); ASCII spelling of `_Δk`. */
+template<char... Digits>
+constexpr thermo::delta_kelvin operator""_delta_k() {
+    return detail::check_overflow<thermo::delta_kelvin, Digits...>();
+}
+
+/** @brief Literal for delta_millikelvin (e.g., 5000_delta_mk); ASCII spelling of `_Δmk`. */
+template<char... Digits>
+constexpr thermo::delta_millikelvin operator""_delta_mk() {
+    return detail::check_overflow<thermo::delta_millikelvin, Digits...>();
+}
+
+/** @brief Literal for delta_fahrenheit (e.g., 9_delta_f); ASCII spelling of `_Δf`. */
+template<char... Digits>
+constexpr thermo::delta_fahrenheit operator""_delta_f() {
+    return detail::check_overflow<thermo::delta_fahrenheit, Digits...>();
+}
+
+/** @brief Literal for delta_millifahrenheit (e.g., 9000_delta_mf); ASCII spelling of `_Δmf`. */
+template<char... Digits>
+constexpr thermo::delta_millifahrenheit operator""_delta_mf() {
+    return detail::check_overflow<thermo::delta_millifahrenheit, Digits...>();
+}
+
+#if THERMO_HAS_UTF8_LITERALS
+/** @brief Literal for delta_celsius (e.g., 5_Δc). Requires THERMO_HAS_UTF8_LITERALS; see `_delta_c`. */
 template<char... Digits>
 constexpr thermo::delta_celsius operator""_Δc() {
     return detail::check_overflow<thermo::delta_celsius, Digits...>();
 }
 
-/** @brief Literal for delta_millicelsius (e.g., 5000_Δmc). */
+/** @brief Literal for delta_millicelsius (e.g., 5000_Δmc). Requires THERMO_HAS_UTF8_LITERALS; see `_delta_mc`. */
 template<char... Digits>
 constexpr thermo::delta_millicelsius operator""_Δmc() {
     return detail::check_overflow<thermo::delta_millicelsius, Digits...>();
 }
 
-/** @brief Literal for delta_kelvin (e.g., 5_Δk). */
+/** @brief Literal for delta_kelvin (e.g., 5_Δk). Requires THERMO_HAS_UTF8_LITERALS; see `_delta_k`. */
 template<char... Digits>
 constexpr thermo::delta_kelvin operator""_Δk() {
     return detail::check_overflow<thermo::delta_kelvin, Digits...>();
 }
 
-/** @brief Literal for delta_millikelvin (e.g., 5000_Δmk). */
+/** @brief Literal for delta_millikelvin (e.g., 5000_Δmk). Requires THERMO_HAS_UTF8_LITERALS; see `_delta_mk`. */
 template<char... Digits>
 constexpr thermo::delta_millikelvin operator""_Δmk() {
     return detail::check_overflow<thermo::delta_millikelvin, Digits...>();
 }
 
-/** @brief Literal for delta_fahrenheit (e.g., 9_Δf). */
+/** @brief Literal for delta_fahrenheit (e.g., 9_Δf). Requires THERMO_HAS_UTF8_LITERALS; see `_delta_f`. */
 template<char... Digits>
 constexpr thermo::delta_fahrenheit operator""_Δf() {
     return detail::check_overflow<thermo::delta_fahrenheit, Digits...>();
 }
 
-/** @brief Literal for delta_millifahrenheit (e.g., 9000_Δmf). */
+/** @brief Literal for delta_millifahrenheit (e.g., 9000_Δmf). Requires THERMO_HAS_UTF8_LITERALS; see `_delta_mf`. */
 template<char... Digits>
 constexpr thermo::delta_millifahrenheit operator""_Δmf() {
     return detail::check_overflow<thermo::delta_millifahrenheit, Digits...>();
 }
+#endif
 
 } // namespace thermo_literals
