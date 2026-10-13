@@ -18,10 +18,7 @@ A type-safe, header-only C++23 library for temperature handling, modeled after `
 ## Requirements
 
 - C++23 compiler (GCC 13+, Clang 17+, MSVC 19.36+)
-- **MSVC users:** The following compiler flags are required:
-  - `/std:c++latest` - Enable C++23 features
-  - `/Zc:__cplusplus` - Set `__cplusplus` macro correctly
-  - `/utf-8` - Treat source files as UTF-8 (for degree symbols)
+- **MSVC users:** The CMake target adds `/utf-8` and `/Zc:__cplusplus` automatically. Use `/std:c++latest` to enable C++23 features. Projects that do not use the CMake target (e.g. a plain include path) must pass these flags themselves.
 - **GCC 13:** GCC before 14 cannot lex non-ASCII user-defined literal suffixes,
   so the `_Δ…` delta literals (`5_Δc`, `5000_Δmc`, …) are unavailable there
   (`THERMO_HAS_UTF8_LITERALS` is `0`). Every `_Δ…` literal has an ASCII
@@ -37,7 +34,7 @@ include(FetchContent)
 FetchContent_Declare(
     thermo
     GIT_REPOSITORY https://github.com/cleishm/thermo-cpp.git
-    GIT_TAG v2.2.0
+    GIT_TAG v2.2.1
 )
 FetchContent_MakeAvailable(thermo)
 
@@ -256,10 +253,10 @@ ctest --test-dir build
 
 ### Building with MSVC
 
-When using MSVC, you must pass the required compiler flags:
+The CMake target adds `/utf-8` and `/Zc:__cplusplus` automatically for MSVC. Pass `/std:c++latest` yourself, and add the other flags if you do not use the CMake target:
 
 ```bash
-cmake -B build -DTHERMO_BUILD_TESTS=ON -DCMAKE_CXX_FLAGS="/std:c++latest /Zc:__cplusplus /utf-8 /EHsc"
+cmake -B build -DTHERMO_BUILD_TESTS=ON -DCMAKE_CXX_FLAGS="/std:c++latest /EHsc"
 cmake --build build --config Release
 ctest --test-dir build -C Release
 ```

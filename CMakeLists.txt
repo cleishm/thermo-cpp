@@ -7,7 +7,7 @@ if(ESP_PLATFORM)
 endif()
 
 project(thermo
-    VERSION 2.2.0
+    VERSION 2.2.1
     DESCRIPTION "Type-safe temperature handling library modeled after std::chrono"
     HOMEPAGE_URL "https://github.com/cleishm/thermo-cpp"
     LANGUAGES CXX
@@ -20,6 +20,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Main library target (header-only)
 add_library(thermo INTERFACE)
 add_library(thermo::thermo ALIAS thermo)
+
+# The headers contain UTF-8 unit symbols and static_assert on __cplusplus; MSVC needs
+# /utf-8 to read the former and /Zc:__cplusplus to report the latter correctly.
+target_compile_options(thermo INTERFACE
+    "$<$<CXX_COMPILER_ID:MSVC>:/utf-8>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/Zc:__cplusplus>"
+)
 
 target_include_directories(thermo INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
