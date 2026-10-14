@@ -1,5 +1,5 @@
-version: "2.2.1"
-description: "Type-safe temperature handling library modeled after std::chrono"
+version: "2.2.2"
+description: "Superseded by cleishm/quanta: Type-safe temperature handling library modeled after std::chrono"
 url: "https://github.com/cleishm/thermo-cpp"
 repository: "https://github.com/cleishm/thermo-cpp.git"
 license: "MIT"
