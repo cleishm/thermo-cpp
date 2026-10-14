@@ -1,5 +1,7 @@
 # thermo
 
+> **This library is no longer maintained.** It has been superseded by [quanta](https://github.com/cleishm/quanta-cpp), which includes it as `quanta::thermo` alongside frequency, electrical and spatial units, and is available as the ESP-IDF component [`cleishm/quanta`](https://components.espressif.com/components/cleishm/quanta). See [Migrating](https://github.com/cleishm/quanta-cpp#migrating-from-thermo-cpp-frequency-cpp-electro-cpp-and-spatial-cpp) for the changes. This is its final release.
+
 A type-safe, header-only C++23 library for temperature handling, modeled after `std::chrono`.
 
 📚 **[Full API Documentation](https://cleishm.github.io/thermo-cpp/)**
@@ -34,7 +36,7 @@ include(FetchContent)
 FetchContent_Declare(
     thermo
     GIT_REPOSITORY https://github.com/cleishm/thermo-cpp.git
-    GIT_TAG v2.2.1
+    GIT_TAG v2.2.2
 )
 FetchContent_MakeAvailable(thermo)
 
